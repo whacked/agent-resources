@@ -2,6 +2,7 @@
 id: adr-0042
 status: proposed
 date: 2026-04-23
+intent: normative
 owner: data-platform
 tags:
   - analytics

@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
-SCHEMA="$(cd "$SCRIPTS_DIR/.." && pwd)/schemas/adr.cue.template.md"
+SCHEMA="$(cd "$SCRIPTS_DIR/.." && pwd)/schemas/reports.cue.template.md"
 VALIDATOR="$SCRIPTS_DIR/validate-frontmatter.sh"
 
 pass=0; fail=0
@@ -27,11 +27,11 @@ check() {
 
 # validate-frontmatter.sh
 _tmpdir="$(mktemp -d)"
-VALID_ADR="$_tmpdir/2026-04-22.001-valid-adr.md"
-cp "$TESTS_DIR/validate-sample.md" "$VALID_ADR"
+VALID_REPORT="$_tmpdir/2026-04-22.001-valid-report.md"
+cp "$TESTS_DIR/validate-sample.md" "$VALID_REPORT"
 trap 'rm -rf "$_tmpdir"' EXIT
 
-check "valid document passes"        pass "$VALIDATOR" "$SCHEMA" "$VALID_ADR"
+check "valid document passes"        pass "$VALIDATOR" "$SCHEMA" "$VALID_REPORT"
 check "invalid content fails"        fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample-invalid.md"
 check "bad filename fails"           fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample.md"
 

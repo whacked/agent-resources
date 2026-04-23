@@ -2,6 +2,7 @@
 id: adr-0099
 status: proposed
 date: not-a-date
+intent: maybe
 owner: team
 ---
 
