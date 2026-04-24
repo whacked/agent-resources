@@ -7,7 +7,7 @@ let
   }) { inherit pkgs; };
 
   cpdPkg = if cpd != null then cpd
-    else (builtins.getFlake "github:whacked/cpd/33997e210f8cb975cf9a356c80ed02399a2922f1").packages.${pkgs.system}.default;
+    else (builtins.getFlake "github:whacked/cpd/544740fcaaef8ca474d79f26259b324e1ddabd44").packages.${pkgs.system}.default;
 
 in pkgs.mkShell {
   buildInputs = [
