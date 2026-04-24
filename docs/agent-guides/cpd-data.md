@@ -28,7 +28,7 @@ Write records to `artifacts/data/<scope-or-dataset-slug>/<dataset-slug>.cpd.yaml
 
 Use CPD defaults unless a reader requires otherwise. Check `cpd --help` or `cpd --examples` when unsure.
 
-For long-lived datasets, add `artifacts/data/<scope-or-dataset-slug>/DATASET.md` with the dataset purpose, active CPD file, schema lineage, append policy, and migration notes.
+For long-lived datasets, add `artifacts/data/<scope-or-dataset-slug>/README.md` with the dataset purpose, active CPD file, schema lineage, append policy, and migration notes.
 
 ## Evolve deliberately
 
