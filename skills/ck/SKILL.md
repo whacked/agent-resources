@@ -1,0 +1,97 @@
+---
+name: ck
+description: Use this skill when doing semantic search, concept-level search, or hybrid search across markdown files — including "band gap" finding "bandgap", finding conceptually related notes, or searching when exact keywords are unknown. Also use for ck index management (--index, --status, --clean).
+version: 1.0.0
+---
+
+# ck — Semantic Search Skill
+
+`ck` is a grep replacement with semantic (embedding-based) search. Use it when keyword search isn't enough — concept matching, alternate phrasings, or "find notes about X" queries.
+
+## Search Modes
+
+```bash
+ck "pattern" .                    # regex grep (default, no index needed)
+ck --lex "phrase" .               # BM25 ranked full-text
+ck --sem "concept" .              # semantic/embedding search
+ck --hybrid "term" .              # regex + semantic combined
+```
+
+**Always run from the directory where the index was built.** The index lives in `.ck/` at the CWD.
+
+## Semantic Search
+
+```bash
+cd /workspace && ck --sem "energy levels in semiconductors" .
+ck --sem "meeting action items" . --limit 5
+ck --sem "auth" . --threshold 0.7     # stricter match
+ck --sem "auth" . --scores            # show similarity scores
+```
+
+**Requires real corpus.** On <20 files semantic scores approach 0 and return nothing. On 50+ substantial files it becomes useful. Check with `ck --status .` first.
+
+## Hybrid Search (recommended for most queries)
+
+```bash
+ck --hybrid "bandgap" .
+ck --hybrid "TODO simulation" . --limit 10
+```
+
+Hybrid combines regex hits and semantic hits via RRF ranking. More reliable than `--sem` alone on mixed corpora.
+
+## Grep-compatible Usage
+
+```bash
+ck "TODO" . -n                       # line numbers
+ck -i "#actionitem" . -r             # case-insensitive recursive
+ck "author: agent" . -l              # filenames only
+ck -C 2 "band gap" orgzly/           # 2 lines context
+ck --jsonl "bandgap" .               # streaming JSON for agent pipelines
+```
+
+## Index Management
+
+```bash
+cd /workspace && ck --index .        # build/update index (run from repo root)
+ck --status .                        # check: files indexed, model, chunk count
+ck --status-verbose .                # detailed stats
+ck --clean-orphans .                 # remove deleted files from index
+ck --clean .                         # wipe index entirely
+```
+
+Index is incremental — only new/changed files are re-embedded on subsequent runs.
+
+## .ckignore
+
+Create `.ckignore` at the index root to exclude files:
+
+```
+*.pdf
+*.png
+*.jpg
+.obsidian/
+```
+
+ck indexes PDFs and images by default — always add binary exclusions.
+
+## Output for Agent Pipelines
+
+```bash
+ck --jsonl --sem "concept" .          # streaming JSONL
+ck --jsonl "pattern" . --no-snippet  # filenames + line numbers only
+ck --json --hybrid "term" .           # single JSON array
+```
+
+## When to Use ck vs Other Tools
+
+| Need | Use |
+|---|---|
+| Exact keyword | `ov search` or `rg` |
+| Conceptually similar | `ck --sem` |
+| Alternate phrasing ("band gap" → bandgap.md) | `ck --hybrid` |
+| TODO/link patterns | `rg` with regex |
+| Backlink graph | `ov backlinks` |
+
+## Known Limitation
+
+Semantic scores are near 0 on tiny corpora. If `ck --sem` returns nothing, check `ck --status .` — if chunks < 100, semantic search won't work well. Use `ck --hybrid` or `rg` instead.

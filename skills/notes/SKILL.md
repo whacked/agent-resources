@@ -1,0 +1,152 @@
+---
+name: notes
+description: Use this skill whenever creating, validating, or locating agent-authored notes in this repo. Covers new-note.sh, new-task.sh, validate-note.sh, and when to write a note vs a formal report.
+version: 1.1.0
+---
+
+# notes — Agent Note and Task Creation
+
+All agent-authored content lives under `orgzly/agents/`. Always use the scripts — never create files by hand.
+
+## Full workflow (do these in order)
+
+### 1. Discover what already exists
+
+Before writing anything, check for prior notes and related human content.
+
+```bash
+# Find existing agent notes on the topic
+rg "slug:.*<topic>" orgzly/agents/notes/ --include="*.md" -l
+ck --hybrid "<topic>" orgzly/agents/notes/     # semantic match on prior notes
+
+# Find related human notes
+ov search "<topic>" --vault orgzly/pages
+ov search "<topic>" --vault orgzly/aimemory
+ov search "<topic>" --vault orgzly/journals
+ck --hybrid "<topic>" orgzly/   # cross-vault semantic search
+```
+
+If a relevant prior agent note exists and you are updating it, create a new note with `supersedes:` — do not edit the old file.
+
+### 2. Read source notes
+
+```bash
+ov read <path> --vault orgzly/pages    # read a specific note
+ov backlinks "<note-name>" --vault orgzly/pages  # see what links to it
+```
+
+Extract TODOs from human journals:
+```bash
+rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
+   --type md orgzly/ --no-heading
+```
+
+### 3. Create the note or task
+
+```bash
+# Note
+bash agent-resources/skills/notes/scripts/new-note.sh <slug>
+# → orgzly/agents/notes/YYYY/MM/DD/YYYY-MM-DD.NNN-slug.md
+
+# Task (from a TODO or action item)
+bash agent-resources/skills/notes/scripts/new-task.sh "Task title" [taskmd-add-options]
+# → orgzly/agents/tasks/YYYY/MM/NNN-slug.md
+```
+
+Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created file path.
+
+### 4. Fill in the created file
+
+Open the file and:
+- Set `source_notes:` to every human note you synthesized from — this is mandatory, it's the provenance link
+- Set `tags:` 
+- Add `supersedes: YYYY-MM-DD.NNN-prior-slug` if replacing an earlier note
+- Write `[[bare-links]]` in the body to reference source notes and related notes (see Link Convention below)
+- For tasks: set `context:` to the source journal file
+
+### 5. Validate
+
+```bash
+bash agent-resources/skills/notes/scripts/validate-note.sh orgzly/agents/notes/YYYY/MM/DD/file.md
+```
+
+### 6. Rebuild ov indexes
+
+Do this after every session that creates or modifies notes, so `ov backlinks` on human notes surfaces the new agent content.
+
+```bash
+ov index build --vault orgzly/pages
+ov index build --vault orgzly/aimemory
+ov index build --vault orgzly/journals
+```
+
+---
+
+## Link convention
+
+Always use `[[bare-target]]` links. Never use `[label](path)` for internal cross-references — it breaks `ov backlinks`.
+
+```
+[[orgzly/pages/bandgap]]           # path-qualified for cross-directory
+[[orgzly/agents/notes/2026/05/17/slug]]    # full path for agent note references
+[[bandgap]]                         # bare for same-vault
+```
+
+---
+
+## Note frontmatter
+
+```yaml
+---
+date: YYYY-MM-DD
+author: agent
+slug: short-slug
+source_notes:
+  - orgzly/aimemory/2025-11-20.md
+tags: [pmd, tapeout]
+supersedes: 2026-05-17.001-prior-slug   # omit if not replacing anything
+---
+```
+
+---
+
+## Task queries
+
+Always run from `/workspace` so `context:` paths resolve correctly.
+
+```bash
+cd /workspace
+taskmd next  --task-dir orgzly/agents/tasks       # what to work on (respects blocking)
+taskmd list  --task-dir orgzly/agents/tasks
+taskmd set 003 --done --task-dir orgzly/agents/tasks
+taskmd graph --task-dir orgzly/agents/tasks
+```
+
+Task options for `new-task.sh`:
+```bash
+bash agent-resources/skills/notes/scripts/new-task.sh "Title" --priority high --tags foo,bar
+bash agent-resources/skills/notes/scripts/new-task.sh "Title" --depends-on 002   # blocked until 002 done
+```
+
+---
+
+## Note vs formal report
+
+| Situation | Write |
+|---|---|
+| Synthesizing human journal entries | note (`new-note.sh`) |
+| Task context, findings, open questions | note (`new-note.sh`) |
+| Architectural decision, design change, directive change | report → `agent-resources/artifacts/reports/` |
+| Schema migration, data contract change | report → `agent-resources/artifacts/reports/` |
+
+For reports: read `agent-resources/AGENTS.md` first, then `agent-resources/docs/agent-guides/reports.md`.
+
+---
+
+## Management scripts reference
+
+| Script | Purpose | When to call |
+|---|---|---|
+| `agent-resources/skills/notes/scripts/new-note.sh <slug>` | Create sharded note with frontmatter | Any time agent writes a synthesis or working note |
+| `agent-resources/skills/notes/scripts/new-task.sh "title" [opts]` | Create sharded task via taskmd | When promoting a TODO to a tracked task |
+| `agent-resources/skills/notes/scripts/validate-note.sh <file\|dir>` | Check filename, path, frontmatter | After creating/editing notes; doctor runs this too |
