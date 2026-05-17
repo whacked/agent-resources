@@ -1,0 +1,6 @@
+### AUTO-POPULATED. DO NOT EDIT
+### user ignores should go in .gitignore.local
+
+### .gitignore.local
+/.agent-shell/
+
