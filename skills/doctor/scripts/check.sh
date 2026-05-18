@@ -5,6 +5,12 @@ REPO="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 NOTES_SCRIPTS="$(cd "$SCRIPT_DIR/../../notes/scripts" && pwd)"
 status=0
 
+# AGENTS_DIR: where agent output lives, relative to REPO.
+# Default assumes vault = repo root (agents/ sits directly at repo root).
+# Override with env var when vault is a subdirectory:
+#   AGENTS_DIR=my-notes/agents bash check.sh
+AGENTS_DIR="${AGENTS_DIR:-agents}"
+
 check() {
   local label="$1" result="$2"
   if [ "$result" = "ok" ]; then
@@ -28,36 +34,36 @@ for bin in ov taskmd ck; do
     || check "$bin binary in PATH" "install $bin — expected at \$HOME/.local/bin/$bin"
 done
 
-# --- ov vaults ---
-VAULTS=(
-  "$REPO/orgzly/aimemory"
-  "$REPO/orgzly/pages"
-)
-for vault in "${VAULTS[@]}"; do
-  if [ -d "$vault/.obsidian" ]; then
-    check "ov vault exists: $vault" "ok"
+# --- ov vaults (auto-discovered) ---
+mapfile -t VAULTS < <(find "$REPO" -maxdepth 4 -name ".obsidian" -type d 2>/dev/null \
+  | grep -v "node_modules" | sed 's|/.obsidian$||' | sort)
+if [ ${#VAULTS[@]} -eq 0 ]; then
+  warn "no Obsidian vaults found" \
+    "run: find . -maxdepth 4 -name '.obsidian' -type d"
+else
+  for vault in "${VAULTS[@]}"; do
+    rel="${vault#$REPO/}"
+    check "ov vault exists: $rel" "ok"
     index_status=$(OV_VAULT="$vault" ov index status --format json 2>/dev/null)
     doc_count=$(echo "$index_status" | jq -r '.data.total_docs // 0' 2>/dev/null)
     if [ "${doc_count:-0}" -gt 0 ]; then
-      check "ov index built: $vault ($doc_count docs)" "ok"
+      check "ov index built: $rel ($doc_count docs)" "ok"
     else
-      check "ov index built: $vault" "run: ov index build --vault $vault"
+      check "ov index built: $rel" "run: ov index build --vault $vault"
     fi
-  else
-    check "ov vault exists: $vault" "vault missing or not Obsidian"
-  fi
-done
+  done
+fi
 
 # --- taskmd ---
-if [ -f "$REPO/orgzly/agents/tasks/.taskmd.yaml" ]; then
-  check "taskmd config: orgzly/agents/tasks/.taskmd.yaml" "ok"
+if [ -f "$REPO/$AGENTS_DIR/tasks/.taskmd.yaml" ]; then
+  check "taskmd config: $AGENTS_DIR/tasks/.taskmd.yaml" "ok"
 else
-  check "taskmd config: orgzly/agents/tasks/.taskmd.yaml" \
-    "run: mkdir -p $REPO/orgzly/agents/tasks && cd $REPO/orgzly/agents/tasks && taskmd init --task-dir . --no-spec --no-agent -q"
+  check "taskmd config: $AGENTS_DIR/tasks/.taskmd.yaml" \
+    "run: mkdir -p $REPO/$AGENTS_DIR/tasks && cd $REPO/$AGENTS_DIR/tasks && taskmd init --task-dir . --no-spec --no-agent -q"
 fi
 
 # --- agent output directories ---
-for dir in orgzly/agents/tasks orgzly/agents/notes; do
+for dir in "$AGENTS_DIR/tasks" "$AGENTS_DIR/notes"; do
   [ -d "$REPO/$dir" ] \
     && check "agent dir exists: $dir" "ok" \
     || check "agent dir exists: $dir" "run: mkdir -p $REPO/$dir"
@@ -76,19 +82,19 @@ done
   || check "notes schema exists" "missing: $(cd "$SCRIPT_DIR/../../notes/schemas" && pwd)/notes.cue.template.md"
 
 # --- agents/notes sharding: no flat .md files directly under agents/notes/ ---
-flat_notes=$(find "$REPO/orgzly/agents/notes" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l)
+flat_notes=$(find "$REPO/$AGENTS_DIR/notes" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l)
 [ "${flat_notes:-0}" -eq 0 ] \
   && check "agents/notes: no flat .md files (all sharded)" "ok" \
   || check "agents/notes: no flat .md files (all sharded)" \
-    "$flat_notes .md file(s) directly under agents/notes/ — move to YYYY/MM/DD/ subdirs"
+    "$flat_notes .md file(s) directly under $AGENTS_DIR/notes/ — move to YYYY/MM/DD/ subdirs"
 
 # --- agents/notes frontmatter validation ---
-note_count=$(find "$REPO/orgzly/agents/notes" -name "*.md" 2>/dev/null | wc -l)
+note_count=$(find "$REPO/$AGENTS_DIR/notes" -name "*.md" 2>/dev/null | wc -l)
 if [ "${note_count:-0}" -gt 0 ]; then
-  bad_notes=$(bash "$NOTES_SCRIPTS/validate-note.sh" "$REPO/orgzly/agents/notes" 2>/dev/null | grep -c "^FAIL" || true)
+  bad_notes=$(bash "$NOTES_SCRIPTS/validate-note.sh" "$REPO/$AGENTS_DIR/notes" 2>/dev/null | grep -c "^FAIL" || true)
   if [ "${bad_notes:-0}" -gt 0 ]; then
     check "agents/notes frontmatter valid" \
-      "$bad_notes file(s) invalid — run: bash $NOTES_SCRIPTS/validate-note.sh $REPO/orgzly/agents/notes"
+      "$bad_notes file(s) invalid — run: bash $NOTES_SCRIPTS/validate-note.sh $REPO/$AGENTS_DIR/notes"
   else
     check "agents/notes frontmatter valid ($note_count files)" "ok"
   fi
@@ -97,7 +103,7 @@ else
 fi
 
 # --- agents/tasks sharding: warn if tasks at root (not in YYYY/MM/) ---
-flat_tasks=$(find "$REPO/orgzly/agents/tasks" -maxdepth 1 -name "*.md" ! -name ".taskmd*" 2>/dev/null | wc -l)
+flat_tasks=$(find "$REPO/$AGENTS_DIR/tasks" -maxdepth 1 -name "*.md" ! -name ".taskmd*" 2>/dev/null | wc -l)
 [ "${flat_tasks:-0}" -eq 0 ] \
   && check "agents/tasks: no flat task files (all sharded)" "ok" \
   || warn "agents/tasks: $flat_tasks flat task file(s)" \
@@ -123,32 +129,33 @@ else
 fi
 
 # --- required skills registered ---
-for skill in ov taskmd ck audit-skills doctor notes; do
+for skill in ov taskmd ck audit-skills doctor notes synthesize; do
   [ -f "$SKILLS_DIR/$skill/SKILL.md" ] \
     && check "skill registered: $skill" "ok" \
     || check "skill registered: $skill" "missing $SKILLS_DIR/$skill/SKILL.md"
 done
 
-# --- guidelines file ---
-[ -f "$REPO/GUIDELINES.md" ] \
-  && check "GUIDELINES.md exists" "ok" \
-  || check "GUIDELINES.md exists" "missing — see GUIDELINES.md in repo root"
+# --- agent-resources/CLAUDE.md (routing + invariants) ---
+[ -f "$REPO/agent-resources/CLAUDE.md" ] \
+  && check "agent-resources/CLAUDE.md exists" "ok" \
+  || check "agent-resources/CLAUDE.md exists" \
+    "missing — check agent-resources checkout: git submodule update --init"
 
 # --- agent notes have author field ---
-if [ -d "$REPO/orgzly/agents/notes" ]; then
-  missing_author=$(rg -rL "^author: " "$REPO/orgzly/agents/notes" --include="*.md" 2>/dev/null | wc -l)
+if [ -d "$REPO/$AGENTS_DIR/notes" ]; then
+  missing_author=$(rg -rL "^author: " "$REPO/$AGENTS_DIR/notes" --include="*.md" 2>/dev/null | wc -l)
   [ "${missing_author:-0}" -eq 0 ] \
     && check "agents/notes all have author: field" "ok" \
     || check "agents/notes all have author: field" \
-      "$missing_author file(s) missing — run: rg -rL '^author: ' $REPO/orgzly/agents/notes --include='*.md'"
+      "$missing_author file(s) missing — run: rg -rL '^author: ' $REPO/$AGENTS_DIR/notes --include='*.md'"
 fi
 
-# --- no agent writes in human dirs (orgzly/ excluding orgzly/agents/) ---
-human_authored_by_agent=$(rg -rl "^author: agent" "$REPO/orgzly" --include="*.md" \
-  --glob "!agents/**" 2>/dev/null | wc -l)
+# --- no agent writes outside agents/ (whole repo, excluding agents/ and agent-resources/) ---
+human_authored_by_agent=$(rg -rl "^author: agent" "$REPO" --include="*.md" \
+  --glob "!$AGENTS_DIR/**" --glob "!agent-resources/**" 2>/dev/null | wc -l)
 [ "${human_authored_by_agent:-0}" -eq 0 ] \
-  && check "no agent-authored files in orgzly/ (excl. agents/)" "ok" \
-  || check "no agent-authored files in orgzly/ (excl. agents/)" \
-    "$human_authored_by_agent file(s) found outside orgzly/agents/ — agent must not write to human vaults"
+  && check "no agent-authored files outside $AGENTS_DIR/" "ok" \
+  || check "no agent-authored files outside $AGENTS_DIR/" \
+    "$human_authored_by_agent file(s) found outside $AGENTS_DIR/ — agent must not write to human content"
 
 exit $status

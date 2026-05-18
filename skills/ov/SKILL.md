@@ -28,15 +28,13 @@ ov index clear --vault /path      # wipe index; next build does full rebuild
 
 **Rule: run `ov index build` after any session that creates or edits notes, before running `ov search`.** Re-runs are cheap — the tool hashes files and skips unchanged ones.
 
-## Known Vaults in This Project
+## Discovering Vaults in This Project
 
-| Vault path | Description |
-|---|---|
-| `orgzly/aimemory` | Primary AI memory vault (43 notes, tags: #aimemory, #atwork, #taiwan, #meeting) |
-| `orgzly/pages` | Secondary vault |
-| `orgzly/journals` | Daily journals |
+```bash
+find . -maxdepth 3 -name ".obsidian" -type d | sed 's|/.obsidian$||'
+```
 
-Paths are relative to the repo root. Always `cd` to repo root before running ov, or use absolute paths. Always pass `--vault` or set `OV_VAULT` — `ov` will error without it.
+Paths are relative to the repo root. Always run ov from the repo root, or use absolute paths. Always pass `--vault` or set `OV_VAULT` — `ov` will error without it.
 
 ## Reading Notes
 

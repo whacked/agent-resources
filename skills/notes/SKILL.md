@@ -1,12 +1,12 @@
 ---
 name: notes
 description: Use this skill whenever creating, validating, or locating agent-authored notes in this repo. Covers new-note.sh, new-task.sh, validate-note.sh, and when to write a note vs a formal report.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # notes — Agent Note and Task Creation
 
-All agent-authored content lives under `orgzly/agents/`. Always use the scripts — never create files by hand.
+All agent-authored content lives under `agents/` at the repo root (or `<vault>/agents/` if the vault is a subdirectory). Always use the scripts — never create files by hand.
 
 ## Full workflow (do these in order)
 
@@ -16,14 +16,12 @@ Before writing anything, check for prior notes and related human content.
 
 ```bash
 # Find existing agent notes on the topic
-rg "slug:.*<topic>" orgzly/agents/notes/ --include="*.md" -l
-ck --hybrid "<topic>" orgzly/agents/notes/     # semantic match on prior notes
+rg "slug:.*<topic>" agents/notes/ --include="*.md" -l
+ck --hybrid "<topic>" agents/notes/     # semantic match on prior notes
 
 # Find related human notes
-ov search "<topic>" --vault orgzly/pages
-ov search "<topic>" --vault orgzly/aimemory
-ov search "<topic>" --vault orgzly/journals
-ck --hybrid "<topic>" orgzly/   # cross-vault semantic search
+ov search "<topic>" --vault <vault>
+ck --hybrid "<topic>" .                 # cross-vault semantic search
 ```
 
 If a relevant prior agent note exists and you are updating it, create a new note with `supersedes:` — do not edit the old file.
@@ -31,14 +29,14 @@ If a relevant prior agent note exists and you are updating it, create a new note
 ### 2. Read source notes
 
 ```bash
-ov read <path> --vault orgzly/pages    # read a specific note
-ov backlinks "<note-name>" --vault orgzly/pages  # see what links to it
+ov read <path> --vault <vault>
+ov backlinks "<note-name>" --vault <vault>
 ```
 
-Extract TODOs from human journals:
+Extract TODOs from human notes:
 ```bash
 rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
-   --type md orgzly/ --no-heading
+   --type md . --no-heading
 ```
 
 ### 3. Create the note or task
@@ -46,11 +44,11 @@ rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
 ```bash
 # Note
 bash agent-resources/skills/notes/scripts/new-note.sh <slug>
-# → orgzly/agents/notes/YYYY/MM/DD/YYYY-MM-DD.NNN-slug.md
+# → agents/notes/YYYY/MM/DD/YYYY-MM-DD.NNN-slug.md
 
 # Task (from a TODO or action item)
 bash agent-resources/skills/notes/scripts/new-task.sh "Task title" [taskmd-add-options]
-# → orgzly/agents/tasks/YYYY/MM/NNN-slug.md
+# → agents/tasks/YYYY/MM/NNN-slug.md
 ```
 
 Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created file path.
@@ -59,7 +57,7 @@ Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created fil
 
 Open the file and:
 - Set `source_notes:` to every human note you synthesized from — this is mandatory, it's the provenance link
-- Set `tags:` 
+- Set `tags:`
 - Add `supersedes: YYYY-MM-DD.NNN-prior-slug` if replacing an earlier note
 - Write `[[bare-links]]` in the body to reference source notes and related notes (see Link Convention below)
 - For tasks: set `context:` to the source journal file
@@ -67,7 +65,7 @@ Open the file and:
 ### 5. Validate
 
 ```bash
-bash agent-resources/skills/notes/scripts/validate-note.sh orgzly/agents/notes/YYYY/MM/DD/file.md
+bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/YYYY/MM/DD/file.md
 ```
 
 ### 6. Rebuild ov indexes
@@ -75,9 +73,8 @@ bash agent-resources/skills/notes/scripts/validate-note.sh orgzly/agents/notes/Y
 Do this after every session that creates or modifies notes, so `ov backlinks` on human notes surfaces the new agent content.
 
 ```bash
-ov index build --vault orgzly/pages
-ov index build --vault orgzly/aimemory
-ov index build --vault orgzly/journals
+# Discover vaults then rebuild each:
+find . -maxdepth 3 -name ".obsidian" -type d | sed 's|/.obsidian$||' | xargs -I{} ov index build --vault {}
 ```
 
 ---
@@ -87,9 +84,9 @@ ov index build --vault orgzly/journals
 Always use `[[bare-target]]` links. Never use `[label](path)` for internal cross-references — it breaks `ov backlinks`.
 
 ```
-[[orgzly/pages/bandgap]]           # path-qualified for cross-directory
-[[orgzly/agents/notes/2026/05/17/slug]]    # full path for agent note references
-[[bandgap]]                         # bare for same-vault
+[[<vault>/pages/bandgap]]          # path-qualified for cross-directory
+[[agents/notes/2026/05/17/slug]]   # full path for agent note references
+[[bandgap]]                        # bare for same-vault
 ```
 
 ---
@@ -102,8 +99,8 @@ date: YYYY-MM-DD
 author: agent
 slug: short-slug
 source_notes:
-  - orgzly/aimemory/2025-11-20.md
-tags: [pmd, tapeout]
+  - <vault>/journals/2026-05-18.md
+tags: [example, topic]
 supersedes: 2026-05-17.001-prior-slug   # omit if not replacing anything
 ---
 ```
@@ -112,14 +109,13 @@ supersedes: 2026-05-17.001-prior-slug   # omit if not replacing anything
 
 ## Task queries
 
-Always run from `/workspace` so `context:` paths resolve correctly.
+Run from repo root so `context:` paths resolve correctly.
 
 ```bash
-cd /workspace
-taskmd next  --task-dir orgzly/agents/tasks       # what to work on (respects blocking)
-taskmd list  --task-dir orgzly/agents/tasks
-taskmd set 003 --done --task-dir orgzly/agents/tasks
-taskmd graph --task-dir orgzly/agents/tasks
+taskmd next  --task-dir agents/tasks       # what to work on (respects blocking)
+taskmd list  --task-dir agents/tasks
+taskmd set 003 --done --task-dir agents/tasks
+taskmd graph --task-dir agents/tasks
 ```
 
 Task options for `new-task.sh`:
@@ -139,7 +135,7 @@ bash agent-resources/skills/notes/scripts/new-task.sh "Title" --depends-on 002  
 | Architectural decision, design change, directive change | report → `agent-resources/artifacts/reports/` |
 | Schema migration, data contract change | report → `agent-resources/artifacts/reports/` |
 
-For reports: read `agent-resources/AGENTS.md` first, then `agent-resources/docs/agent-guides/reports.md`.
+For reports: read `agent-resources/CLAUDE.md` routing, then `agent-resources/docs/agent-guides/reports.md`.
 
 ---
 

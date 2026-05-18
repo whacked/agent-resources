@@ -35,7 +35,7 @@ SLUG="$1"; shift
 # Detect agent vs human: CLAUDECODE=1 is set by Claude Code in agent shells
 if [[ -n "${CLAUDECODE:-}" ]]; then
   DEFAULT_AUTHOR="agent"
-  DEFAULT_DEST="$REPO_ROOT/orgzly/agents/notes"
+  DEFAULT_DEST="$REPO_ROOT/agents/notes"
 else
   DEFAULT_AUTHOR=$(git config user.name 2>/dev/null || echo "${USER:-human}")
   DEFAULT_DEST="$PWD"

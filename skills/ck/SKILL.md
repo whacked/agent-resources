@@ -45,7 +45,7 @@ Hybrid combines regex hits and semantic hits via RRF ranking. More reliable than
 ck "TODO" . -n                       # line numbers
 ck -i "#actionitem" . -r             # case-insensitive recursive
 ck "author: agent" . -l              # filenames only
-ck -C 2 "band gap" orgzly/           # 2 lines context
+ck -C 2 "band gap" .                 # 2 lines context
 ck --jsonl "bandgap" .               # streaming JSON for agent pipelines
 ```
 

@@ -1,14 +1,20 @@
-# Agent Directives
+# Agent directives — agent-resources
 
-This file is a routing layer. When a task matches a workflow below, read the linked guide before creating or changing the matching artifacts.
+Read this before creating or modifying any artifact in this directory.
 
-## Workflow guides
+## Routing
 
-- Reports: before writing or editing `artifacts/reports/**`, read `docs/agent-guides/reports.md`.
-- Cumulative data: before creating, appending, migrating, or replacing accumulated structured data, read `docs/agent-guides/cpd-data.md`.
+- **Creating or managing notes/tasks**: read `skills/notes/SKILL.md` first
+- **Writing to `artifacts/reports/`**: read `docs/agent-guides/reports.md` first
+- **Writing or appending CPD data files**: read `docs/agent-guides/cpd-data.md` first
 
 ## Invariants
 
-- Every agent-generated report, analysis, implementation decision, architectural change, or significant design choice must be recorded as a report artifact.
-- Any directive change, CPD schema change, data migration, or data file replacement is a normative report.
-- Pure CPD appends under an existing compatible schema do not require a new report.
+- Every significant agent decision, architectural change, schema change, or directive change must be recorded as a report in `artifacts/reports/`
+- Any CPD schema change, data migration, or data file replacement requires a normative report
+- Pure CPD appends under an existing compatible schema do not require a report
+- Never edit a prior report's body — supersede it with a new file using `supersedes:` frontmatter
+
+## Write constraint
+
+Agent output in the notes repo goes to the `agents/` subdirectory of the notes vault only. The exact path is specified in the root `CLAUDE.md`. Never write to the human edited vault outside that path.

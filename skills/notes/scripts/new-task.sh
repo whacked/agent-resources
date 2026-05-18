@@ -12,7 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-TASKS_DIR="$REPO_ROOT/orgzly/agents/tasks"
+TASKS_DIR="$REPO_ROOT/agents/tasks"
 
 [[ $# -ge 1 ]] || { echo "Usage: $0 \"Task title\" [taskmd-add-options...]" >&2; exit 1; }
 
