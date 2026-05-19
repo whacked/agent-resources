@@ -63,16 +63,19 @@ Index is incremental — only new/changed files are re-embedded on subsequent ru
 
 ## .ckignore
 
-Create `.ckignore` at the index root to exclude files:
+`.ckignore` at the repo root controls which files ck indexes. It already exists in this repo with common exclusions (images, binaries, `*.json`, `*.jsonl`, `*.html`, `*.pdf`, `*.edn`, etc.).
 
-```
-*.pdf
-*.png
-*.jpg
-.obsidian/
+**Never pass `--exclude` flags on the command line.** Add new patterns to `.ckignore` instead — that way exclusions are permanent and no flags are needed.
+
+```bash
+# correct — .ckignore handles it
+ck --hybrid "concept" .
+
+# wrong — flags are band-aids, not fixes
+ck --hybrid "concept" . --exclude "*.json" --exclude "*.pdf"
 ```
 
-ck indexes PDFs and images by default — always add binary exclusions.
+If a file type consistently pollutes results, add it to `.ckignore` once.
 
 ## Output for Agent Pipelines
 

@@ -33,15 +33,15 @@ If the request spans multiple modes (e.g. merge fragments AND create a tracked t
 Cast wide first, then read everything that surfaces.
 
 ```bash
-# Semantic sweep across full repo
-cd /workspace && ck --hybrid "<topic or phrase>" . --limit 20
+# Semantic sweep across full repo (.ckignore handles binary/data exclusions)
+ck --hybrid "<topic or phrase>" . --limit 20
 
 # Time-bounded search (for periodic digests)
 find <vault>/journals -name "*.md" -newer <vault>/journals/YYYY-MM-DD.md | sort
 rg -l "<topic>" <vault>/journals/ --include="*.md"
 
-# Task picture
-taskmd list --task-dir agents/tasks --format json
+# Existing tracked tasks — check BEFORE creating new ones to catch blocking relationships
+taskmd list --task-dir agents/tasks
 taskmd graph --task-dir agents/tasks
 
 # Open action items in human notes
@@ -140,6 +140,8 @@ When you hit the write constraint, always do two things: (1) produce the agent-s
 
 **Do not force every output into the same template.** Choose structure based on content type:
 
+**`# Background` rule:** Background states *scope* — what vault, what time range, what patterns searched. It does NOT narrate methodology ("I ran rg then ck"). Methodology belongs in the skill. A future reader of the note should learn *what was covered*, not *how the agent worked*.
+
 | Output type | Structure |
 |---|---|
 | Weekly digest / periodic summary | Dated note: `## Progress`, `## Decisions`, `## Open items`, `## Next week` |
@@ -198,9 +200,13 @@ Do not commit an ADR speculatively. The `intent: normative` report format exists
 bash agent-resources/skills/notes/scripts/new-note.sh <slug>
 # Fill in source_notes:, supersedes: (if applicable), tags:, relations:
 
-# For tasks
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" --priority <p> --depends-on <NNN>
-# Then open the file and set context: to source files
+# For tasks — always use action-item template for scraped items; always set context
+bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+  --template action-item --context "<source-file>" [--priority high|low] [--depends-on <NNN>]
+
+# After ALL tasks are created, run graph and reason about dependencies:
+# taskmd graph --task-dir agents/tasks
+# For each pair where B cannot logically start until A is done, set dependencies: ["NNN"] in B's frontmatter
 
 # For cancelling defunct tasks
 taskmd set NNN --status cancelled --task-dir agents/tasks

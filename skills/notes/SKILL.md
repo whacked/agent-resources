@@ -46,12 +46,23 @@ rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
 bash agent-resources/skills/notes/scripts/new-note.sh <slug>
 # → agents/notes/YYYY/MM/DD/YYYY-MM-DD.NNN-slug.md
 
-# Task (from a TODO or action item)
-bash agent-resources/skills/notes/scripts/new-task.sh "Task title" [taskmd-add-options]
+# Task (from a TODO or action item scraped from notes)
+bash agent-resources/skills/notes/scripts/new-task.sh "Task title" \
+  --template action-item \
+  --context "aimemory/2026-05-19.md" \
+  --tags foo,bar
 # → agents/tasks/YYYY/MM/NNN-slug.md
 ```
 
 Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created file path.
+
+**Always use `new-task.sh` — never call `taskmd add` directly.** `taskmd` resolves its config by walking up from CWD; the script `cd`s into `agents/tasks/` internally so the right config is found. Calling `taskmd add` from the Bash tool with a bare `cd` poisons the tool's working directory for all subsequent calls.
+
+**Task creation rules:**
+- `--template action-item` — use for any item scraped from a journal or meeting note; avoids meaningless Objective/Tasks/Acceptance-Criteria placeholders
+- `--context "<source-file>"` — always set; this is the provenance link taskmd uses for `taskmd context <id>`
+- `--priority` — set only when clearly justified by context (e.g. legal/NDA → high, meta-tooling wish → low); leave medium otherwise
+- After all tasks are created, reason about dependencies and set `dependencies: ["NNN"]` for any task that logically cannot start until another completes
 
 ### 4. Fill in the created file
 
@@ -120,8 +131,14 @@ taskmd graph --task-dir agents/tasks
 
 Task options for `new-task.sh`:
 ```bash
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" --priority high --tags foo,bar
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" --depends-on 002   # blocked until 002 done
+# Scraped action item (most common case)
+bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+  --template action-item --context "aimemory/2026-05-19.md" --tags foo,bar
+
+# With explicit priority or dependency
+bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+  --template action-item --context "aimemory/2026-05-19.md" \
+  --priority high --depends-on 002
 ```
 
 ---
