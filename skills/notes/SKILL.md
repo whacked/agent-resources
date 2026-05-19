@@ -44,7 +44,7 @@ rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
 ```bash
 # Note
 bash agent-resources/skills/notes/scripts/new-note.sh <slug>
-# → agents/notes/YYYY/MM/DD/YYYY-MM-DD.NNN-slug.md
+# → agents/notes/YYYY/MM/YYYY-MM-DD.NNN-slug.md
 
 # Task (from a TODO or action item scraped from notes)
 bash agent-resources/skills/notes/scripts/new-task.sh "Task title" \
@@ -76,7 +76,7 @@ Open the file and:
 ### 5. Validate
 
 ```bash
-bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/YYYY/MM/DD/file.md
+bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/YYYY/MM/file.md
 ```
 
 ### 6. Rebuild ov indexes
@@ -92,13 +92,22 @@ find . -maxdepth 3 -name ".obsidian" -type d | sed 's|/.obsidian$||' | xargs -I{
 
 ## Link convention
 
-Always use `[[bare-target]]` links. Never use `[label](path)` for internal cross-references — it breaks `ov backlinks`.
+Always use `[[...]]` wiki-links in note bodies. Never use `[label](path)` markdown links for internal cross-references — they break `ov backlinks`.
+
+**Wiki-links must use paths relative to the note file**, not repo-root-relative paths. Repo-root-relative paths (`[[aimemory/2026-03-30]]`) do not resolve in standard markdown clients.
+
+Agent notes live at `agents/notes/YYYY/MM/`. From that depth, the relative prefixes are:
 
 ```
-[[<vault>/pages/bandgap]]          # path-qualified for cross-directory
-[[agents/notes/2026/05/17/slug]]   # full path for agent note references
-[[bandgap]]                        # bare for same-vault
+[[../../../../aimemory/YYYY-MM-DD]]          # vault files (4 up to repo root)
+[[../../../../pages/some-page]]              # pages vault (4 up)
+[[../../../tasks/YYYY/MM/NNN-slug]]          # agent tasks (3 up to agents/, then tasks/)
+[[./other-note-same-month]]                  # sibling note in same YYYY/MM/
 ```
+
+Depth changes if a note is created at a different level — recount `../` from the actual file location.
+
+**`source_notes:` frontmatter is different**: use repo-root-relative paths there (e.g. `aimemory/2026-05-18.md`). `ov` reads these for backlink indexing using its own vault resolution, not filesystem-relative paths. Do not add `../` to frontmatter values.
 
 ---
 

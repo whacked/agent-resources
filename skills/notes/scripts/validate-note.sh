@@ -38,9 +38,9 @@ validate_one() {
   fi
 
   # 2. Path sharding: must end in YYYY/MM/DD
-  if ! echo "$dir" | grep -qE '/[0-9]{4}/[0-9]{2}/[0-9]{2}$'; then
+  if ! echo "$dir" | grep -qE '/[0-9]{4}/[0-9]{2}$'; then
     echo "FAIL  path: $file"
-    echo "      expected path ending: YYYY/MM/DD/"
+    echo "      expected path ending: YYYY/MM/"
     ok=1
   fi
 

@@ -62,9 +62,8 @@ fi
 TODAY=$(date +%Y-%m-%d)
 YYYY=$(date +%Y)
 MM=$(date +%m)
-DD=$(date +%d)
 
-DAY_DIR="$DEST_DIR/$YYYY/$MM/$DD"
+DAY_DIR="$DEST_DIR/$YYYY/$MM"
 mkdir -p "$DAY_DIR"
 
 # Compute next NNN for today in this dest dir
