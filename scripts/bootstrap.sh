@@ -390,6 +390,30 @@ for dir in "$NOTES_DIR" "$TASKS_DIR"; do
 done
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Phase 5b: .ckignore
+# ══════════════════════════════════════════════════════════════════════════════
+
+log_section "Phase 5b: .ckignore"
+
+CKIGNORE_SRC="$AGENT_RESOURCES/skills/ck/.ckignore"
+# .ckignore lives at the vault root (where `ck --index .` is run)
+if [[ "$NOTES_VAULT" == "." ]]; then
+  CKIGNORE_DEST="$TARGET_REPO/.ckignore"
+else
+  CKIGNORE_DEST="$TARGET_REPO/$NOTES_VAULT/.ckignore"
+fi
+
+if [[ ! -f "$CKIGNORE_SRC" ]]; then
+  log_warn "skills/ck/.ckignore not found at $CKIGNORE_SRC — skipping"
+  add_manual "Check that agent-resources/skills/ck/.ckignore exists"
+elif [[ -f "$CKIGNORE_DEST" ]]; then
+  log_skip ".ckignore already exists at ${CKIGNORE_DEST#$TARGET_REPO/} — not overwriting"
+  log_info "To update: cp '$CKIGNORE_SRC' '$CKIGNORE_DEST'"
+else
+  act "Install .ckignore to ${CKIGNORE_DEST#$TARGET_REPO/}" cp "$CKIGNORE_SRC" "$CKIGNORE_DEST"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Phase 6: taskmd init
 # ══════════════════════════════════════════════════════════════════════════════
 

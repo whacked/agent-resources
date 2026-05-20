@@ -11,11 +11,13 @@ version: 1.0.0
 ## Search Modes
 
 ```bash
-ck "pattern" .                    # regex grep (default, no index needed)
+ck --hybrid "term" .              # DEFAULT: regex + semantic combined (use this)
+ck "pattern" .                    # regex grep (no index needed)
 ck --lex "phrase" .               # BM25 ranked full-text
 ck --sem "concept" .              # semantic/embedding search
-ck --hybrid "term" .              # regex + semantic combined
 ```
+
+**Always use `--hybrid` by default.** It combines regex and semantic ranking via RRF and is the most reliable mode across mixed corpora.
 
 **Always run from the directory where the index was built.** The index lives in `.ck/` at the CWD.
 
@@ -30,14 +32,15 @@ ck --sem "auth" . --scores            # show similarity scores
 
 **Requires real corpus.** On <20 files semantic scores approach 0 and return nothing. On 50+ substantial files it becomes useful. Check with `ck --status .` first.
 
-## Hybrid Search (recommended for most queries)
+## Hybrid Search (default — use for all queries)
 
 ```bash
 ck --hybrid "bandgap" .
 ck --hybrid "TODO simulation" . --limit 10
+ck --hybrid "auth" . --threshold 0.02    # filter by RRF score
 ```
 
-Hybrid combines regex hits and semantic hits via RRF ranking. More reliable than `--sem` alone on mixed corpora.
+Hybrid combines regex hits and semantic hits via RRF ranking. More reliable than `--sem` alone on mixed corpora. **Never pass `--exclude` flags** — exclusions are handled by `.ckignore` at the vault root (installed by bootstrap).
 
 ## Grep-compatible Usage
 
@@ -63,7 +66,7 @@ Index is incremental — only new/changed files are re-embedded on subsequent ru
 
 ## .ckignore
 
-`.ckignore` at the repo root controls which files ck indexes. It already exists in this repo with common exclusions (images, binaries, `*.json`, `*.jsonl`, `*.html`, `*.pdf`, `*.edn`, etc.).
+A `.ckignore` is maintained at `skills/ck/.ckignore` in agent-resources and installed to the vault root by `bootstrap.sh`. It excludes:
 
 **Never pass `--exclude` flags on the command line.** Add new patterns to `.ckignore` instead — that way exclusions are permanent and no flags are needed.
 
@@ -74,8 +77,6 @@ ck --hybrid "concept" .
 # wrong — flags are band-aids, not fixes
 ck --hybrid "concept" . --exclude "*.json" --exclude "*.pdf"
 ```
-
-If a file type consistently pollutes results, add it to `.ckignore` once.
 
 ## Output for Agent Pipelines
 
