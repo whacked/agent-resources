@@ -1,222 +1,201 @@
 # agent-resources
 
-Upstream capability repository for AI-assisted notes workflows. Add to any notes repo as a git submodule to get structured note/task management, semantic search, synthesis, and formal artifact tracking.
+A cross-harness **skills extension** for AI-assisted notes workflows: structured note/task management, semantic search, synthesis, and formal artifact tracking. One GitHub repo, installable into Claude Code, Codex, Gemini, and OpenCode.
 
-## What a repo looks like after bootstrap
+The design has two clean halves:
 
-Below is a small fictitious project. Human writes anywhere in `notes/`; the agent writes only inside `notes/agents/`.
+- **The extension (read-only capability)** — the skills, scripts, and schemas in this repo. You install it into your agent harness; it lives in that harness's plugin/extension store, not in your project.
+- **Your workspace (where writes go)** — agent output (`agents/notes/`, `agents/tasks/`, `artifacts/reports/`, `artifacts/data/`) is written under `$NOTES_WORKSPACE`, resolved as: explicit `$NOTES_WORKSPACE` env var → the git top-level of your working repo → the current directory.
 
-```
-my-project/
-│
-├── notes/                              # your vault — edit freely, structure however you like
-│   │
-│   ├── pages/
-│   │   ├── bandgap-reference.md        # you wrote this
-│   │   └── opamp-design.md             # you wrote this
-│   │
-│   ├── journals/                       # daily notes (e.g. Obsidian daily notes plugin)
-│   │   ├── 2026-05-17.md               # you wrote this — can contain todos, rough thoughts
-│   │   └── 2026-05-18.md               # you wrote this
-│   │
-│   ├── project1/
-│   │   └── 2025-11-20.md               # you wrote this
-│   │
-│   └── agents/                         # agent writes here only — do not edit manually
-│       │
-│       ├── notes/                      # synthesized notes, distillations, digests
-│       │   └── 2026/05/18/
-│       │       ├── 2026-05-18.001-bandgap-synthesis.md   # agent synthesized from your journals
-│       │       └── 2026-05-18.002-weekly-digest.md       # agent weekly summary
-│       │
-│       └── tasks/                      # tracked tasks, extracted from your notes
-│           ├── .taskmd.yaml            # taskmd config (created by bootstrap)
-│           └── 2026/05/
-│               ├── 001-review-bandgap-sim.md    # agent extracted this from a journal todo
-│               └── 002-write-up-opamp.md        # agent created from a meeting note
-│
-├── agent-resources/                    # this repo — git submodule, don't edit
-│   ├── CLAUDE.md                       # agent routing + invariants (auto-loaded)
-│   ├── README.md                       # you are here
-│   ├── skills/                         # agent capability definitions
-│   ├── scripts/                        # management scripts (see below)
-│   ├── artifacts/
-│   │   ├── reports/                    # formal agent decisions + ADRs
-│   │   │   └── 2026/05/18/
-│   │   │       └── 2026-05-18.001-switch-to-taskmd.md   # agent wrote, you confirmed
-│   │   └── data/                       # accumulated structured data (CPD files)
-│   │       └── benchmarks/
-│   │           └── sim-runs.cpd.yaml   # agent appends each session; never overwrites
-│   │
-│   └── docs/agent-guides/              # detailed agent workflow guides
-│
-├── .claude/
-│   └── skills -> agent-resources/skills/   # symlink created by bootstrap
-│
-└── CLAUDE.md                           # project instructions — bootstrap appends write constraint here
+So installing gives you the *capabilities*; pointing at a workspace tells them *where to write*.
+
+---
+
+## Install
+
+There is no single cross-harness command — each agent has its own install mechanism — but it is one step per harness, and all of them read the same shared `skills/` directory from this one repo.
+
+| Harness | Manifest in this repo | Install |
+|---|---|---|
+| **Claude Code** | `.claude-plugin/{plugin.json, marketplace.json}` | `/plugin marketplace add whacked/agent-resources`<br>then `/plugin install agent-resources@agent-resources` |
+| **Codex** | `.codex-plugin/plugin.json` (`skills: ./skills/`) + `AGENTS.md` | Add this repo as a Codex plugin (git source) |
+| **Gemini** | `gemini-extension.json` + `GEMINI.md` | `gemini extensions install https://github.com/whacked/agent-resources` |
+| **OpenCode** | `.opencode/plugins/agent-resources.js` + `.opencode/INSTALL.md` | See [`.opencode/INSTALL.md`](.opencode/INSTALL.md) |
+
+> The Claude Code commands are exact. The Codex / Gemini / OpenCode invocations follow each harness's standard plugin/extension flow — confirm the precise command against that harness's current docs, since they change independently of this repo.
+
+After installing, point the skills at a workspace (only needed if you are not running inside the git repo you want to write into):
+
+```bash
+export NOTES_WORKSPACE=/path/to/your/notes-repo
 ```
 
-### What a journal entry looks like
+Then verify everything resolves:
+
+```bash
+# from anywhere; uses the resolved workspace + dependencies.json
+bash skills/doctor/scripts/check.sh
+```
+
+### Alternative: vendor it as a submodule
+
+If you prefer the skills to live *inside* a specific notes repo (the older layout), add this repo as a git submodule and run the bootstrap, which wires a `.claude/skills` symlink, creates the workspace directories, and appends a write-constraint block to your `CLAUDE.md`:
+
+```bash
+git submodule add https://github.com/whacked/agent-resources
+bash agent-resources/scripts/bootstrap.sh --notes-vault <your-vault-dir>   # --dry-run to preview
+bash agent-resources/skills/doctor/scripts/check.sh
+```
+
+Both layouts work; `doctor` detects which one you are in.
+
+---
+
+## Picking and choosing skills
+
+**Per-skill à la carte install is not supported** — installing the extension exposes all of its skills as one namespaced bundle (e.g. `agent-resources:notes`, `agent-resources:synthesize`). This is deliberate, and it is how the "unwanted skills" concern is resolved:
+
+- **Namespacing** — every skill is prefixed with `agent-resources:`, so nothing collides with your other skills or another extension's.
+- **On-demand activation** — skills are invoked by the model only when their trigger matches. An installed-but-unused skill is inert at runtime; only its one-line description participates in routing. You pay essentially nothing for skills you don't trigger.
+- **Cohesion** — the skills are interdependent (`synthesize` and `doctor` both rely on `notes`; all share `scripts/validate-frontmatter.sh` and the schemas). Splitting them into separate installs would break those references. The bundle is the dependency-closed unit; see [`dependencies.json`](dependencies.json) for the full map.
+
+If you genuinely want a subset, fork the repo and delete the unwanted `skills/<name>/` directories (and their entries in `dependencies.json`) — the remaining skills keep working as long as you don't remove something in another skill's dependency closure.
+
+### Skills in this bundle
+
+| Skill | Use it when… |
+|---|---|
+| `notes` | creating, validating, or locating agent-authored notes — `new-note.sh`, `new-task.sh`, `validate-note.sh`, and note-vs-report routing |
+| `synthesize` | reading accumulated material (journals, meeting notes, tasks) and distilling it into notes/tasks/reports |
+| `doctor` | checking, verifying, or repairing the setup — binaries, workspace dirs, schema, sharding |
+| `taskmd` | creating, listing, updating, or visualizing tasks tracked as markdown |
+| `ov` | reading/searching/creating notes in an Obsidian vault |
+| `ck` | semantic / concept-level / hybrid search across markdown |
+| `audit-skills` | auditing or improving skills themselves |
+
+---
+
+## Dependencies
+
+External CLIs the skills shell out to. `doctor` reads [`dependencies.json`](dependencies.json) and reports which are present; required ones must be on `PATH`, optional ones degrade gracefully.
+
+| Tool | Required | Used by |
+|---|---|---|
+| `cue` | yes | frontmatter validation (`notes`, `synthesize`) |
+| `taskmd` | yes | task tracking (`notes`) |
+| `jq` | yes | JSON parsing (`notes`, `doctor`) |
+| `rg` (ripgrep) | yes | search (`doctor`, `notes`) |
+| `cpd` | no | CPD structured data (`synthesize`) |
+| `ov` | no | Obsidian vault navigation (`ov`, `notes`) |
+| `ck` | no | semantic search (`ck`, `notes`) |
+
+Install to `$HOME/.local/bin` or anywhere on `PATH`.
+
+---
+
+## What your workspace looks like
+
+The extension lives in your harness's store. Inside *your* notes repo (the workspace), only the human content and the agent's write targets appear. Humans write anywhere; the agent writes only under `agents/` and `artifacts/`.
+
+```
+my-notes-repo/                          # = $NOTES_WORKSPACE (git top-level)
+│
+├── journals/                           # you write here — daily notes, todos, rough thoughts
+│   ├── 2026-05-17.md
+│   └── 2026-05-18.md
+├── pages/
+│   └── bandgap-reference.md            # you write here
+│
+├── agents/                             # agent writes here only — do not edit by hand
+│   ├── notes/                          # synthesized notes (sharded YYYY/MM/DD/)
+│   │   └── 2026/05/18/
+│   │       └── 2026-05-18.001-bandgap-synthesis.md
+│   └── tasks/                          # tracked tasks (taskmd)
+│       ├── .taskmd.yaml
+│       └── 2026/05/
+│           └── 001-review-bandgap-sim.md
+│
+└── artifacts/                          # formal agent records (relocated here from the extension)
+    ├── reports/                        # decisions + ADRs (normative reports)
+    │   └── 2026/05/18/
+    │       └── 2026-05-18.001-switch-to-taskmd.md
+    └── data/                           # accumulated structured data (CPD files)
+        └── benchmarks/sim-runs.cpd.yaml
+```
+
+> Why `artifacts/` lives in the workspace, not the extension: a harness's install dir is versioned and replaced on every update, so anything written there would be wiped. All writes therefore resolve under `$NOTES_WORKSPACE`.
+
+### A journal entry → what the agent produces
 
 ```markdown
-<!-- notes/journals/2026-05-18.md — you wrote this in Obsidian -->
-
-Had a good session on the bandgap circuit today. The PTAT current is tracking well
-but there's a corner case at -40°C I haven't resolved yet.
-
+<!-- journals/2026-05-18.md — you wrote this -->
+Good session on the bandgap circuit. PTAT current tracking well, but a corner
+case at -40°C is unresolved.
 TODO: rerun sim with updated model file
-- [ ] check if the 1.2V rail assumption holds at low temp
-#ActionItem write up the design rationale before I forget
+#ActionItem write up the design rationale
 ```
 
-### What the agent produces from it
-
 ```markdown
-<!-- notes/agents/notes/2026/05/18/2026-05-18.001-bandgap-synthesis.md — agent wrote this -->
+<!-- agents/notes/2026/05/18/2026-05-18.001-bandgap-synthesis.md — agent wrote this -->
 ---
 date: 2026-05-18
 author: agent
 slug: bandgap-synthesis
 source_notes:
-  - notes/journals/2026-05-17.md
-  - notes/journals/2026-05-18.md
+  - journals/2026-05-18.md
 tags: [bandgap, simulation]
 ---
 
 # bandgap synthesis
 
-Summary of current understanding from recent journal entries.
-
-# Background
-
-PTAT current tracking well. Open issue: corner case at -40°C with 1.2V rail assumption.
-
-# Findings
-
-Three action items extracted and tracked as tasks 001–002.
-
-# Next steps
-
-Rerun sim with updated model file once rail assumption is confirmed.
-```
-
-### What a task file looks like
-
-```markdown
-<!-- notes/agents/tasks/2026/05/001-review-bandgap-sim.md — agent created via taskmd -->
----
-id: "001"
-title: "Rerun bandgap sim with updated model file"
-status: pending
-priority: high
-tags: [bandgap, simulation]
-context:
-  - notes/journals/2026-05-18.md    # source line that originated this task
----
+PTAT current tracking well. Open issue: -40°C corner with the 1.2V rail assumption.
+Action items extracted and tracked as tasks 001–002.
 ```
 
 ---
 
-## Scripts you can use
+## Scripts you can run directly
 
-All scripts live in `agent-resources/`. They work for both the agent and you — the agent
-auto-detects it's Claude via `$CLAUDECODE=1`; otherwise they behave as human tools.
-
-**Setup and health:**
+The scripts work for both the agent (auto-detected via `$CLAUDECODE=1`) and you. Paths below are relative to the extension root; when installed, call them from wherever the skill lives, or use the skills directly via your agent.
 
 ```bash
-# Wire agent-resources into this repo (run once after cloning):
-bash agent-resources/scripts/bootstrap.sh --notes-vault <your-vault-dir>
+# Create a note — lands under $NOTES_WORKSPACE/agents/notes/YYYY/MM/ (agent) or $PWD (human)
+bash skills/notes/scripts/new-note.sh my-idea            # --edit to open, --dest-dir to override
 
-# Check the whole setup — every line should be PASS:
-bash agent-resources/skills/doctor/scripts/check.sh
+# Create a tracked task
+bash skills/notes/scripts/new-task.sh "Title of task" --priority high
+
+# Validate a note or the whole tree (filename, sharding, frontmatter)
+bash skills/notes/scripts/validate-note.sh agents/notes/
+
+# Health check the setup
+bash skills/doctor/scripts/check.sh
 ```
 
-**Creating notes:**
+Task queries (run from the workspace so `context:` paths resolve):
 
 ```bash
-# Create a new note — lands in <your-vault>/YYYY/MM/DD/ relative to CWD
-bash agent-resources/skills/notes/scripts/new-note.sh my-idea
-
-# Open in $EDITOR immediately:
-bash agent-resources/skills/notes/scripts/new-note.sh my-idea --edit
-
-# Override destination (e.g. put it somewhere specific):
-bash agent-resources/skills/notes/scripts/new-note.sh my-idea --dest-dir notes/pages/
-```
-
-**Creating and managing tasks:**
-
-```bash
-# Create a tracked task:
-bash agent-resources/skills/notes/scripts/new-task.sh "Title of task" --priority high
-
-# List all tasks:
-taskmd list --task-dir notes/agents/tasks
-
-# What to work on next (respects dependencies):
-taskmd next --task-dir notes/agents/tasks
-
-# Mark a task done:
-taskmd set 003 --done --task-dir notes/agents/tasks
-```
-
-**Validating notes:**
-
-```bash
-# Validate a single note (filename, sharding, frontmatter):
-bash agent-resources/skills/notes/scripts/validate-note.sh notes/agents/notes/2026/05/18/2026-05-18.001-bandgap-synthesis.md
-
-# Validate the whole agents/notes/ tree:
-bash agent-resources/skills/notes/scripts/validate-note.sh notes/agents/notes/
+taskmd next --task-dir agents/tasks      # what to work on (respects blocking)
+taskmd list --task-dir agents/tasks
+taskmd set 003 --done --task-dir agents/tasks
 ```
 
 ---
 
 ## How the system works
 
-The agent reads everything in your vault freely. It writes only to `<notes-vault>/agents/`.
-You write anywhere — the agent adapts.
-
-The eventually-consistent loop:
+The agent reads everything in your workspace freely. It writes only under `agents/` and `artifacts/`. The loop is eventually-consistent:
 
 ```
 you write a journal entry or note
   → agent reads via ov / ck / rg
   → agent synthesizes into agents/notes/ with source_notes: linking back to your files
-  → ov index build — backlinks now surface your agent note when browsing your original
-  → you see the synthesis in Obsidian, edit your note with new thoughts
-  → agent creates a new synthesis with supersedes: pointing to the prior one
+  → ov index build — backlinks now surface the agent note when browsing your original
+  → you edit your note with new thoughts
+  → agent writes a new synthesis with supersedes: pointing at the prior one
   → repeat
 ```
 
-Agent notes are never edited in place — each new synthesis is a new file. Old ones stay as
-audit trail. You can always see what the agent understood at any point in time.
+Agent notes are never edited in place — each synthesis is a new file; old ones remain as an audit trail of what the agent understood at each point in time.
 
----
-
-## Bootstrapping into a new repo
-
-```bash
-# From the target repo root, with agent-resources present:
-bash agent-resources/scripts/bootstrap.sh
-
-# Vault is a subdirectory (not repo root):
-bash agent-resources/scripts/bootstrap.sh --notes-vault <your-vault>
-
-# Preview without making changes:
-bash agent-resources/scripts/bootstrap.sh --dry-run
-
-# Verify the full setup afterward:
-bash agent-resources/skills/doctor/scripts/check.sh
-```
-
----
-
-## Required binaries
-
-Install to `$HOME/.local/bin` or anywhere in PATH:
-
-- `taskmd` — task/todo/dependency tracking → see `skills/taskmd/SKILL.md`
-- `ov` — Obsidian vault navigation and search → see `skills/ov/SKILL.md`
-- `ck` — semantic + hybrid full-repo search → see `skills/ck/SKILL.md`
+See `CLAUDE.md` for agent routing and invariants, and `docs/agent-guides/` for the detailed workflow guides (reports, CPD data).
