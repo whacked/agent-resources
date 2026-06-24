@@ -1,0 +1,6 @@
+# The image build only consumes the flake; keep the build context tiny so layer
+# caching is not busted by edits to docs/scripts.
+*
+!flake.nix
+!flake.lock
+!entrypoint.sh
