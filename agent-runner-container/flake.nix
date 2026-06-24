@@ -120,6 +120,28 @@
           '';
         };
 
+        # Install nixpkgs packages into the RUNNING container's shared profile,
+        # so they appear on the agent's PATH immediately. This is ephemeral: a
+        # `--rm` container loses it on exit. For persistence, add the package to
+        # the flake and rebuild.
+        add-pkg = pkgs.writeShellApplication {
+          name = "add-pkg";
+          text = ''
+            ${dockerCheck}
+            if [ "$#" -eq 0 ]; then
+              echo "usage: nix run .#add -- <pkg> [pkg...]   (nixpkgs attribute names)" >&2
+              echo "       e.g. nix run .#add -- ripgrep fd   (ephemeral; rebuild to persist)" >&2
+              exit 1
+            fi
+            name="''${AGENT_RUNNER_NAME:-agent-runner}"
+            attrs=(); for p in "$@"; do attrs+=("nixpkgs#$p"); done
+            echo ">> installing into running container '$name' (ephemeral): $*"
+            exec docker exec -u 0 "$name" \
+              nix --extra-experimental-features 'nix-command flakes' \
+              profile install --profile /nix/var/nix/profiles/agent-tools "''${attrs[@]}"
+          '';
+        };
+
         test-image = pkgs.writeShellApplication {
           name = "test-image";
           text = ''
@@ -172,6 +194,7 @@
           run = mkApp run-image;
           up = mkApp up;
           root = mkApp root-shell;
+          add = mkApp add-pkg;
           test-image = mkApp test-image;
           default = mkApp up;
         };
@@ -187,6 +210,7 @@
             echo "  nix run .#up            # build (cached) + drop into the container"
             echo "  nix run .#run           # launch the container (no rebuild)"
             echo "  nix run .#root          # root shell in the running container"
+            echo "  nix run .#add -- rg fd  # install pkgs into the running container (ephemeral)"
             echo "  nix run .#test-image    # smoke test the image"
           '';
         };

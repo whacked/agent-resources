@@ -4,7 +4,7 @@
 IMAGE ?= agent-runner:latest
 
 .DEFAULT_GOAL := up
-.PHONY: up build run root test clean help
+.PHONY: up build run root add test clean help
 
 ## up:    build (cached) then drop into the container — the one-shot path
 up:
@@ -21,6 +21,10 @@ run:
 ## root:  open a root shell in the running container
 root:
 	nix run .#root
+
+## add:   install pkgs into the running container, e.g. make add PKG="ripgrep fd"
+add:
+	nix run .#add -- $(PKG)
 
 ## test:  smoke-test the built image
 test:

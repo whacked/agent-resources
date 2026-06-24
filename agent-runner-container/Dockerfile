@@ -93,11 +93,13 @@ WORKDIR /workspace
 COPY entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 
-# Trim build-only paths (nixpkgs source, build deps, the base-system skeleton).
-# Everything reachable from the agent-tools profile and Nix's own profile — the
-# GC roots — survives, so the agents and the package manager remain. This is the
-# v1 slimming step; a nix2container/multi-stage runtime is the future option.
-RUN nix-collect-garbage -d
+# Trim build-only paths (nixpkgs source, the llm-agents eval deps). Plain
+# collect-garbage removes only paths unreachable from a GC root; it keeps every
+# current profile generation, so `nix` and the base tools survive and remain
+# usable at runtime. (Do NOT add -d/--delete-old here: deleting old generations
+# orphans the base image's default profile and removes `nix` itself.) Slimming
+# further via nix2container/multi-stage is the documented future option.
+RUN nix-collect-garbage
 
 # Entrypoint runs as root (PID 1): it aligns `agent` to the host uid/gid, then
 # drops to `agent`. Because no USER is set, `docker exec` defaults to root —

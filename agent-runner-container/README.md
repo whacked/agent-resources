@@ -30,6 +30,7 @@ The canonical interface is `nix run .#<app>`; the `Makefile` is thin sugar.
 | `nix run .#build-image` | `make build` | Build `agent-runner:latest` via the Nix-orchestrated Docker build |
 | `nix run .#run` | `make run` | Launch the container without rebuilding |
 | `nix run .#root` | `make root` | Open a **root** shell in the running container |
+| `nix run .#add -- rg fd` | `make add PKG="rg fd"` | Install nixpkgs packages into the running container (ephemeral) |
 | `nix run .#test-image` | `make test` | Smoke-test the built image |
 | `nix develop` | — | Enter the dev shell |
 | — | `make clean` | Remove the image and reclaim **all** build cache |
@@ -46,6 +47,13 @@ prunes only dangling `<none>` images left by re-tagging, runs the container with
   ```bash
   WORKSPACE=/path/to/project nix run .#run
   ```
+- More mounts, ports, or env vars go through `DOCKER_ARGS` (works with the
+  `Makefile`, `nix run .#run`, and `./run.sh`):
+  ```bash
+  DOCKER_ARGS="-v $HOME/.config/gh:/home/agent/.config/gh -p 8080:8080" nix run .#run
+  ```
+  Anything beyond that, just `docker run` the image yourself — after a build it
+  lives in your local Docker (see *Build-time vs runtime* below).
 - The host user's uid/gid are mapped onto `agent` at start, so files you create
   in `/workspace` stay owned by you on the host.
 - `host.docker.internal` resolves to the host from inside the container (works on
@@ -77,6 +85,56 @@ nix eval github:numtide/llm-agents.nix#packages.aarch64-linux --apply builtins.a
 
 This list is the single source of truth — it drives the container build (and you
 can append the packages to the dev shell to get the agents on your host too).
+
+## Installing more packages
+
+The image is `FROM nixos/nix`, so **Nix is available inside it** and gives you a
+150 000+ package set without `apt`. There are two ways to add packages:
+
+**1. Declaratively (recommended — reproducible, persistent).** Add to the env in
+`flake.nix` and rebuild. Agents go in `agentNames`; ordinary tools go in
+`container-tools`:
+
+```nix
+container-tools = pkgs.buildEnv {
+  name = "container-tools";
+  paths = with pkgs; [ ... fd bat htop ];   # add here
+};
+```
+```bash
+nix run .#build-image
+```
+
+**2. At runtime (quick, but ephemeral).** While the container is running, install
+into the shared profile so it lands on the agent's `PATH` immediately:
+
+```bash
+nix run .#add -- fd bat          # or: make add PKG="fd bat"
+# under the hood: docker exec -u 0 agent-runner \
+#   nix profile install --profile /nix/var/nix/profiles/agent-tools nixpkgs#fd ...
+```
+
+Because the launchers run with `--rm`, runtime installs disappear when the
+container exits — by design. The store write needs root, which is why this goes
+through `docker exec -u 0` (`agent` can *run* `nix` for searching/inspection, but
+not write the store). For anything you want to keep, use option 1 and rebuild.
+
+## Build-time vs runtime (what's "nixified")
+
+Per the design, **Nix owns the build; the runtime is a normal Docker image.**
+After `nix run .#build-image`, `agent-runner:latest` is in your local Docker and
+you can ignore Nix entirely:
+
+```bash
+docker run --rm -it -v "$PWD:/workspace" -w /workspace \
+  --add-host=host.docker.internal:host-gateway \
+  -e HOST_UID=$(id -u) -e HOST_GID=$(id -g) agent-runner:latest
+```
+
+The `nix run .#run` / `.#up` apps and `run.sh` are just convenience wrappers
+around exactly that command. Nix is still *present in the image* (that's how
+runtime installs and the agents' closures work), but you are not required to use
+Nix to launch or use the container.
 
 ## How the build works
 

@@ -3,9 +3,13 @@
 #
 # Canonical launcher — `nix run .#run` / `.#up` and the Makefile all call this.
 #
-#   ./run.sh                 # interactive login shell as `agent` in /workspace
-#   ./run.sh claude          # run a single command, then exit
+#   ./run.sh                  # interactive login shell as `agent` in /workspace
+#   ./run.sh claude           # run a single command, then exit
 #   WORKSPACE=/path ./run.sh  # bind a different host dir to /workspace
+#
+# Extra Docker flags (more mounts, ports, env) go through DOCKER_ARGS:
+#   DOCKER_ARGS="-v /data:/data -p 8080:8080" ./run.sh
+#   DOCKER_ARGS="-v $HOME/.config/gh:/home/agent/.config/gh" nix run .#run
 #
 # Defaults:
 #   - binds $PWD on the host to /workspace in the container
@@ -28,6 +32,9 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Word-split DOCKER_ARGS into extra docker run flags (volumes, ports, etc.).
+read -ra extra_args <<< "${DOCKER_ARGS:-}"
+
 exec docker run --rm -it \
   --name "$NAME" \
   --add-host=host.docker.internal:host-gateway \
@@ -36,4 +43,5 @@ exec docker run --rm -it \
   --env HOST_UID="$(id -u)" \
   --env HOST_GID="$(id -g)" \
   --env HOST_USER="${USER:-agent}" \
+  "${extra_args[@]}" \
   "$IMAGE" "$@"
