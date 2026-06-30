@@ -44,8 +44,8 @@ validate_one() {
     ok=1
   fi
 
-  # 3. Frontmatter — requires cue CLI; degrades to required-field check if absent
-  if command -v cue &>/dev/null && [[ -x "$VALIDATOR" ]]; then
+  # 3. Frontmatter — requires tfq (bundles cuelang); degrades to required-field check if absent
+  if command -v tfq &>/dev/null && [[ -x "$VALIDATOR" ]]; then
     fm_out=$(bash "$VALIDATOR" "$SCHEMA" "$file" 2>&1) || {
       echo "FAIL  frontmatter: $file"
       echo "$fm_out" | sed 's/^/      /'

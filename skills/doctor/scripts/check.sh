@@ -27,40 +27,23 @@ warn() {
   echo "      note: $2"
 }
 
-# --- binaries ---
-for bin in ov taskmd ck; do
+# --- required binaries ---
+# tfq is the one binary that supersedes ov, taskmd, and cue (it shells to rg and
+# bundles the cuelang library). rg and jq are hard deps of tfq and the scripts.
+for bin in tfq rg jq; do
   command -v $bin &>/dev/null \
     && check "$bin binary in PATH" "ok" \
-    || check "$bin binary in PATH" "install $bin — expected at \$HOME/.local/bin/$bin"
+    || check "$bin binary in PATH" "install $bin and put it on PATH (e.g. \$HOME/.local/bin/$bin)"
 done
 
-# --- ov vaults (auto-discovered) ---
-mapfile -t VAULTS < <(find "$REPO" -maxdepth 4 -name ".obsidian" -type d 2>/dev/null \
-  | grep -v "node_modules" | sed 's|/.obsidian$||' | sort)
-if [ ${#VAULTS[@]} -eq 0 ]; then
-  warn "no Obsidian vaults found" \
-    "run: find . -maxdepth 4 -name '.obsidian' -type d"
-else
-  for vault in "${VAULTS[@]}"; do
-    rel="${vault#$REPO/}"
-    check "ov vault exists: $rel" "ok"
-    index_status=$(OV_VAULT="$vault" ov index status --format json 2>/dev/null)
-    doc_count=$(echo "$index_status" | jq -r '.data.total_docs // 0' 2>/dev/null)
-    if [ "${doc_count:-0}" -gt 0 ]; then
-      check "ov index built: $rel ($doc_count docs)" "ok"
-    else
-      check "ov index built: $rel" "run: ov index build --vault $vault"
-    fi
-  done
-fi
+# --- optional binaries (features degrade gracefully when absent) ---
+for bin in ck cpd; do
+  command -v $bin &>/dev/null \
+    && check "$bin binary in PATH (optional)" "ok" \
+    || warn "$bin not found (optional)" "semantic search / CPD features degrade without it"
+done
 
-# --- taskmd ---
-if [ -f "$REPO/$AGENTS_DIR/tasks/.taskmd.yaml" ]; then
-  check "taskmd config: $AGENTS_DIR/tasks/.taskmd.yaml" "ok"
-else
-  check "taskmd config: $AGENTS_DIR/tasks/.taskmd.yaml" \
-    "run: mkdir -p $REPO/$AGENTS_DIR/tasks && cd $REPO/$AGENTS_DIR/tasks && taskmd init --task-dir . --no-spec --no-agent -q"
-fi
+# tfq is index-free: no `ov index build` and no `taskmd init`/.taskmd.yaml to check.
 
 # --- agent output directories ---
 for dir in "$AGENTS_DIR/tasks" "$AGENTS_DIR/notes"; do
@@ -129,7 +112,7 @@ else
 fi
 
 # --- required skills registered ---
-for skill in ov taskmd ck audit-skills doctor notes synthesize; do
+for skill in tfq ck audit-skills doctor notes synthesize; do
   [ -f "$SKILLS_DIR/$skill/SKILL.md" ] \
     && check "skill registered: $skill" "ok" \
     || check "skill registered: $skill" "missing $SKILLS_DIR/$skill/SKILL.md"

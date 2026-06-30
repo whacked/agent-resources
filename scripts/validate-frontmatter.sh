@@ -14,18 +14,6 @@ usage() {
     exit 1
 }
 
-# Extract content of the first ```cue...``` block from a markdown file.
-extract_cue_schema() {
-    local file="$1"
-    awk '/^```cue$/{found=1; next} found && /^```$/{exit} found{print}' "$file"
-}
-
-# Extract YAML frontmatter (content between the first pair of --- lines).
-extract_yaml_frontmatter() {
-    local file="$1"
-    awk 'NR==1 && /^---$/{found=1; next} found && /^---$/{exit} found{print}' "$file"
-}
-
 # Extract H1 lines from a file's body (skipping any leading ```cue block and frontmatter).
 extract_h1_lines() {
     local file="$1"
@@ -43,15 +31,18 @@ extract_h1_lines() {
 validate_frontmatter() {
     local template="$1" document="$2"
 
-    local schema yaml
-    schema=$(extract_cue_schema "$template")
-    yaml=$(extract_yaml_frontmatter "$document")
+    # tfq bundles the cuelang library: it reads the ```cue block from the
+    # template itself and validates the document's frontmatter against it with
+    # `cue vet` semantics. No `cue` binary, no manual schema/yaml extraction.
+    if ! command -v tfq &>/dev/null; then
+        echo "error: tfq not found on PATH — required for frontmatter validation" >&2
+        return 1
+    fi
 
-    [[ -n "$schema" ]] || { echo "error: no CUE schema block found in '$template'" >&2; return 1; }
-    [[ -n "$yaml" ]]   || { echo "error: no YAML frontmatter found in '$document'" >&2; return 1; }
-
-    cue vet cue: <(echo "$schema") yaml: <(echo "$yaml") 2>&1 | grep -v '/dev/fd/'
-    return "${PIPESTATUS[0]}"
+    local out rc
+    out=$(tfq --validate "$document" --schema "$template" 2>&1); rc=$?
+    [[ $rc -eq 0 ]] || echo "$out" >&2
+    return $rc
 }
 
 validate_titles() {

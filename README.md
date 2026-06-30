@@ -68,8 +68,7 @@ If you genuinely want a subset, fork the repo and delete the unwanted `skills/<n
 | `notes` | creating, validating, or locating agent-authored notes — `new-note.sh`, `new-task.sh`, `validate-note.sh`, and note-vs-report routing |
 | `synthesize` | reading accumulated material (journals, meeting notes, tasks) and distilling it into notes/tasks/reports |
 | `doctor` | checking, verifying, or repairing the setup — binaries, workspace dirs, schema, sharding |
-| `taskmd` | creating, listing, updating, or visualizing tasks tracked as markdown |
-| `ov` | reading/searching/creating notes in an Obsidian vault |
+| `tfq` | searching/reading/linking notes, managing tasks + dependencies, and validating frontmatter — one index-free binary (supersedes `ov`, `taskmd`, `cue`) |
 | `ck` | semantic / concept-level / hybrid search across markdown |
 | `audit-skills` | auditing or improving skills themselves |
 
@@ -81,12 +80,10 @@ External CLIs the skills shell out to. `doctor` reads [`dependencies.json`](depe
 
 | Tool | Required | Used by |
 |---|---|---|
-| `cue` | yes | frontmatter validation (`notes`, `synthesize`) |
-| `taskmd` | yes | task tracking (`notes`) |
+| `tfq` | yes | notes search/read/links, tasks + dependencies, frontmatter validation (`tfq`, `notes`, `synthesize`, `doctor`) — **supersedes `cue`, `taskmd`, `ov`** |
+| `rg` (ripgrep) | yes | search; tfq shells out to it (`tfq`, `notes`, `doctor`) |
 | `jq` | yes | JSON parsing (`notes`, `doctor`) |
-| `rg` (ripgrep) | yes | search (`doctor`, `notes`) |
 | `cpd` | no | CPD structured data (`synthesize`) |
-| `ov` | no | Obsidian vault navigation (`ov`, `notes`) |
 | `ck` | no | semantic search (`ck`, `notes`) |
 
 Install to `$HOME/.local/bin` or anywhere on `PATH`.
@@ -110,15 +107,14 @@ my-notes-repo/                          # = $NOTES_WORKSPACE (git top-level)
 │   ├── notes/                          # synthesized notes (sharded YYYY/MM/DD/)
 │   │   └── 2026/05/18/
 │   │       └── 2026-05-18.001-bandgap-synthesis.md
-│   └── tasks/                          # tracked tasks (taskmd)
-│       ├── .taskmd.yaml
+│   └── tasks/                          # tracked tasks (tfq; index-free, no config file)
 │       └── 2026/05/
 │           └── 001-review-bandgap-sim.md
 │
 └── artifacts/                          # formal agent records (relocated here from the extension)
     ├── reports/                        # decisions + ADRs (normative reports)
     │   └── 2026/05/18/
-    │       └── 2026-05-18.001-switch-to-taskmd.md
+    │       └── 2026-05-18.001-adopt-tfq-tooling.md
     └── data/                           # accumulated structured data (CPD files)
         └── benchmarks/sim-runs.cpd.yaml
 ```
@@ -172,12 +168,12 @@ bash skills/notes/scripts/validate-note.sh agents/notes/
 bash skills/doctor/scripts/check.sh
 ```
 
-Task queries (run from the workspace so `context:` paths resolve):
+Task queries:
 
 ```bash
-taskmd next --task-dir agents/tasks      # what to work on (respects blocking)
-taskmd list --task-dir agents/tasks
-taskmd set 003 --done --task-dir agents/tasks
+tfq --root agents/tasks --next           # what to work on (deps satisfied)
+tfq --root agents/tasks --list
+tfq --root agents/tasks --done 003       # mark task 003 completed
 ```
 
 ---
@@ -188,9 +184,9 @@ The agent reads everything in your workspace freely. It writes only under `agent
 
 ```
 you write a journal entry or note
-  → agent reads via ov / ck / rg
+  → agent reads via tfq / ck / rg
   → agent synthesizes into agents/notes/ with source_notes: linking back to your files
-  → ov index build — backlinks now surface the agent note when browsing your original
+  → tfq --backlinks surfaces the agent note live when querying your original (no index step)
   → you edit your note with new thoughts
   → agent writes a new synthesis with supersedes: pointing at the prior one
   → repeat

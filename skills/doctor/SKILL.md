@@ -6,7 +6,7 @@ version: 2.0.0
 
 # doctor
 
-Validates the full project setup: binaries, ov vaults, taskmd, ck index, agent directory structure, skill registration, and provenance compliance.
+Validates the full project setup: binaries (`tfq` + `rg`/`jq`, with `ck`/`cpd` optional), agent directory structure, note sharding, frontmatter validity, ck index, skill registration, and provenance compliance.
 
 ## Run the check
 

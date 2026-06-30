@@ -90,11 +90,11 @@ ck --json --hybrid "term" .           # single JSON array
 
 | Need | Use |
 |---|---|
-| Exact keyword | `ov search` or `rg` |
+| Exact keyword | `tfq <kw>` or `rg` |
 | Conceptually similar | `ck --sem` |
 | Alternate phrasing ("band gap" → bandgap.md) | `ck --hybrid` |
 | TODO/link patterns | `rg` with regex |
-| Backlink graph | `ov backlinks` |
+| Backlink graph | `tfq --backlinks` |
 
 ## Known Limitation
 

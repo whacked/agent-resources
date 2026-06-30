@@ -10,7 +10,7 @@
 #   2. Creates or updates .claude/skills symlink(s)
 #   3. Appends agent-resources block to CLAUDE.md (or creates minimal starter)
 #   4. Creates <notes-vault>/agents/{notes,tasks}/ directories
-#   5. Initialises taskmd in the tasks directory
+#   5. Confirms tfq is installed (it is index-free — no per-collection init)
 #   6. Prints a summary of everything done and any manual actions needed
 #
 # OPTIONS:
@@ -28,7 +28,7 @@
 #   - Never overwrites an existing file without explicit notice
 #   - Never clobbers a .claude/skills symlink that points somewhere unexpected
 #   - CLAUDE.md append is idempotent: marker prevents double-insertion
-#   - taskmd init is only run if .taskmd.yaml does not already exist
+#   - tfq needs no init: no .taskmd.yaml, no search index to build
 #   - --dry-run makes every action a no-op: safe to run for inspection first
 #
 # AFTER RUNNING:
@@ -414,30 +414,23 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Phase 6: taskmd init
+# Phase 5: tfq readiness
 # ══════════════════════════════════════════════════════════════════════════════
 
-log_section "Phase 5: taskmd init"
+log_section "Phase 5: tfq (notes + tasks + validation)"
 
-TASKMD_CONFIG="$TASKS_DIR/.taskmd.yaml"
-
-if [[ ! -f "$TASKMD_CONFIG" ]]; then
-  if command -v taskmd &>/dev/null; then
-    if [[ $DRY_RUN -eq 1 ]]; then
-      log_dryrun "Would run: cd '$TASKS_DIR' && taskmd init --task-dir . --no-spec --no-agent -q"
-    else
-      log_action "Initialising taskmd in $AGENTS_DIR/tasks/"
-      (cd "$TASKS_DIR" && taskmd init --task-dir . --no-spec --no-agent -q)
-      log_info "taskmd config created: $AGENTS_DIR/tasks/.taskmd.yaml"
-    fi
-  else
-    log_warn "taskmd not found in PATH — skipping taskmd init"
-    log_warn "Install taskmd, then run:"
-    log_warn "  cd '$TASKS_DIR' && taskmd init --task-dir . --no-spec --no-agent -q"
-    add_manual "cd '$TASKS_DIR' && taskmd init --task-dir . --no-spec --no-agent -q"
-  fi
+# tfq supersedes ov, taskmd, and cue. It is index-free and needs no
+# per-collection init (no .taskmd.yaml, no search index) — the skill scripts
+# address agents/notes and agents/tasks with --root. So there is nothing to
+# create here; just confirm the binary is installed.
+if command -v tfq &>/dev/null; then
+  log_info "tfq found: $(command -v tfq)"
+  log_info "agents/tasks and agents/notes are ready — tfq needs no init (index-free)."
 else
-  log_skip "taskmd already initialised ($AGENTS_DIR/tasks/.taskmd.yaml exists)"
+  log_warn "tfq not found in PATH."
+  log_warn "tfq is required: it supersedes ov, taskmd, and cue for the notes/tasks/validation skills."
+  log_warn "Build it from the text-file-query-tool repo (make build) and put ./tfq on PATH."
+  add_manual "Install tfq and put it on PATH (replaces ov, taskmd, and cue)"
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════

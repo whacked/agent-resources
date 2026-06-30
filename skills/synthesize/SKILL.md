@@ -41,8 +41,8 @@ find <vault>/journals -name "*.md" -newer <vault>/journals/YYYY-MM-DD.md | sort
 rg -l "<topic>" <vault>/journals/ --include="*.md"
 
 # Existing tracked tasks — check BEFORE creating new ones to catch blocking relationships
-taskmd list --task-dir agents/tasks
-taskmd graph --task-dir agents/tasks
+tfq --root agents/tasks --list
+tfq --root agents/tasks --graph
 
 # Open action items in human notes
 rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\- \[ \]" \
@@ -50,7 +50,7 @@ rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\- \[ \]" \
 
 # Prior agent synthesis
 rg "slug:" agents/notes/ --include="*.md" -l
-ov backlinks "<canonical-note>" --vault <vault>/pages
+tfq --root <vault>/pages --backlinks "<canonical-note>"
 
 # CPD data files (structured multi-session records)
 find agent-resources/artifacts/data -name "*.cpd.yaml" 2>/dev/null
@@ -168,7 +168,7 @@ Is this a periodic summary?
 
 New tasks implied?
 ├── Yes → new-task.sh, set dependencies: on related tasks
-└── Existing tasks redundant → taskmd set NNN --status cancelled
+└── Existing tasks redundant → tfq --root agents/tasks --set NNN --status cancelled
     (cancelled, not deleted — the record stays)
 ```
 
@@ -205,11 +205,11 @@ bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
   --template action-item --context "<source-file>" [--priority high|low] [--depends-on <NNN>]
 
 # After ALL tasks are created, run graph and reason about dependencies:
-# taskmd graph --task-dir agents/tasks
+# tfq --root agents/tasks --graph
 # For each pair where B cannot logically start until A is done, set dependencies: ["NNN"] in B's frontmatter
 
 # For cancelling defunct tasks
-taskmd set NNN --status cancelled --task-dir agents/tasks
+tfq --root agents/tasks --set NNN --status cancelled
 
 # For archiving (only files already in agents/)
 mkdir -p agents/archive && mv agents/notes/.../file.md agents/archive/
@@ -250,7 +250,6 @@ Always close with a concrete list of any manual changes that fall outside the wr
 
 ```bash
 bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/
-ov index build --vault <vault>/pages
-ov index build --vault <vault>/aimemory
-ov index build --vault <vault>/journals
+# tfq is index-free — no `ov index build` step. (Obsidian keeps its own backlink
+# index for human browsing, independently of the agent loop.)
 ```

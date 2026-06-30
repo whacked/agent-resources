@@ -17,10 +17,11 @@ Before writing anything, check for prior notes and related human content.
 ```bash
 # Find existing agent notes on the topic
 rg "slug:.*<topic>" agents/notes/ --include="*.md" -l
+tfq --root agents/notes "<topic>"       # keyword search of prior agent notes
 ck --hybrid "<topic>" agents/notes/     # semantic match on prior notes
 
 # Find related human notes
-ov search "<topic>" --vault <vault>
+tfq --root <vault> "<topic>"            # keyword search (add --in heading|tag|link to narrow)
 ck --hybrid "<topic>" .                 # cross-vault semantic search
 ```
 
@@ -29,9 +30,11 @@ If a relevant prior agent note exists and you are updating it, create a new note
 ### 2. Read source notes
 
 ```bash
-ov read <path> --vault <vault>
-ov backlinks "<note-name>" --vault <vault>
+tfq --root <vault> --show <ref>             # full record (--raw = body only, --frontmatter = meta only)
+tfq --root <vault> --backlinks <ref>        # notes that link here (computed live; no index)
 ```
+
+`<ref>` resolves by path, basename, seq-stripped basename, or frontmatter `id`/`slug`/`title`.
 
 Extract TODOs from human notes:
 ```bash
@@ -48,7 +51,6 @@ bash agent-resources/skills/notes/scripts/new-note.sh <slug>
 
 # Task (from a TODO or action item scraped from notes)
 bash agent-resources/skills/notes/scripts/new-task.sh "Task title" \
-  --template action-item \
   --context "aimemory/2026-05-19.md" \
   --tags foo,bar
 # → agents/tasks/YYYY/MM/NNN-slug.md
@@ -56,13 +58,13 @@ bash agent-resources/skills/notes/scripts/new-task.sh "Task title" \
 
 Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created file path.
 
-**Always use `new-task.sh` — never call `taskmd add` directly.** `taskmd` resolves its config by walking up from CWD; the script `cd`s into `agents/tasks/` internally so the right config is found. Calling `taskmd add` from the Bash tool with a bare `cd` poisons the tool's working directory for all subsequent calls.
+**Always use `new-task.sh` — never call `tfq --task` directly.** The script pins the `agents/tasks` collection via `--root`, lets tfq do the `YYYY/MM/` sharding and the padded sequential id, and translates the friendly `--tags a,b` / `--context FILE` flags into tfq's frontmatter fields. Calling `tfq --task` by hand loses those conveniences and can write the task to the wrong directory.
 
 **Task creation rules:**
-- `--template action-item` — use for any item scraped from a journal or meeting note; avoids meaningless Objective/Tasks/Acceptance-Criteria placeholders
-- `--context "<source-file>"` — always set; this is the provenance link taskmd uses for `taskmd context <id>`
+- `--context "<source-file>"` — always set; it writes the `context:` frontmatter field, the provenance link back to the source journal/meeting note
+- `--tags a,b` — comma-separated; the script expands them into tfq tags
 - `--priority` — set only when clearly justified by context (e.g. legal/NDA → high, meta-tooling wish → low); leave medium otherwise
-- After all tasks are created, reason about dependencies and set `dependencies: ["NNN"]` for any task that logically cannot start until another completes
+- After all tasks are created, reason about dependencies and set them with `--depends-on NNN[,MMM]` (or edit the `dependencies:` frontmatter) for any task that logically cannot start until another completes — tfq's `--next` then hides blocked tasks
 
 ### 4. Fill in the created file
 
@@ -79,20 +81,15 @@ Open the file and:
 bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/YYYY/MM/file.md
 ```
 
-### 6. Rebuild ov indexes
+### 6. No index to rebuild
 
-Do this after every session that creates or modifies notes, so `ov backlinks` on human notes surfaces the new agent content.
-
-```bash
-# Discover vaults then rebuild each:
-find . -maxdepth 3 -name ".obsidian" -type d | sed 's|/.obsidian$||' | xargs -I{} ov index build --vault {}
-```
+tfq is index-free — it computes links and backlinks live on every query, so there is **no `ov index build`** step after creating or editing notes. (If humans browse the vault in Obsidian, Obsidian maintains its own backlink index independently; that is unaffected by the agent loop.)
 
 ---
 
 ## Link convention
 
-Always use `[[...]]` wiki-links in note bodies. Never use `[label](path)` markdown links for internal cross-references — they break `ov backlinks`.
+Always use `[[...]]` wiki-links in note bodies. Avoid `[label](path)` markdown links for internal cross-references — wiki-links are what Obsidian and this vault's conventions expect (tfq resolves both kinds, but mixing styles fragments the graph).
 
 **Wiki-links must use paths relative to the note file**, not repo-root-relative paths. Repo-root-relative paths (`[[aimemory/2026-03-30]]`) do not resolve in standard markdown clients.
 
@@ -107,7 +104,7 @@ Agent notes live at `agents/notes/YYYY/MM/`. From that depth, the relative prefi
 
 Depth changes if a note is created at a different level — recount `../` from the actual file location.
 
-**`source_notes:` frontmatter is different**: use repo-root-relative paths there (e.g. `aimemory/2026-05-18.md`). `ov` reads these for backlink indexing using its own vault resolution, not filesystem-relative paths. Do not add `../` to frontmatter values.
+**`source_notes:` frontmatter is different**: use repo-root-relative paths there (e.g. `aimemory/2026-05-18.md`). These are a provenance record resolved from the vault root, not filesystem-relative paths — so do not add `../` to frontmatter values. (tfq's `--backlinks` is driven by the body `[[wiki-links]]`, which is why *those* must stay file-relative.)
 
 ---
 
@@ -129,25 +126,25 @@ supersedes: 2026-05-17.001-prior-slug   # omit if not replacing anything
 
 ## Task queries
 
-Run from repo root so `context:` paths resolve correctly.
-
 ```bash
-taskmd next  --task-dir agents/tasks       # what to work on (respects blocking)
-taskmd list  --task-dir agents/tasks
-taskmd set 003 --done --task-dir agents/tasks
-taskmd graph --task-dir agents/tasks
+tfq --root agents/tasks --next                       # what to work on (deps satisfied)
+tfq --root agents/tasks --list                       # all tasks (--status S to filter)
+tfq --root agents/tasks --done 003                   # mark task 003 completed
+tfq --root agents/tasks --set 003 --status in-progress
+tfq --root agents/tasks --graph                      # dependency edges
 ```
+
+`<ref>` (e.g. `003`) resolves by seq id, slug, basename, or title.
 
 Task options for `new-task.sh`:
 ```bash
 # Scraped action item (most common case)
 bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
-  --template action-item --context "aimemory/2026-05-19.md" --tags foo,bar
+  --context "aimemory/2026-05-19.md" --tags foo,bar
 
 # With explicit priority or dependency
 bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
-  --template action-item --context "aimemory/2026-05-19.md" \
-  --priority high --depends-on 002
+  --context "aimemory/2026-05-19.md" --priority high --depends-on 002
 ```
 
 ---
@@ -170,5 +167,5 @@ For reports: read `agent-resources/CLAUDE.md` routing, then `agent-resources/doc
 | Script | Purpose | When to call |
 |---|---|---|
 | `agent-resources/skills/notes/scripts/new-note.sh <slug>` | Create sharded note with frontmatter | Any time agent writes a synthesis or working note |
-| `agent-resources/skills/notes/scripts/new-task.sh "title" [opts]` | Create sharded task via taskmd | When promoting a TODO to a tracked task |
+| `agent-resources/skills/notes/scripts/new-task.sh "title" [opts]` | Create sharded task via tfq | When promoting a TODO to a tracked task |
 | `agent-resources/skills/notes/scripts/validate-note.sh <file\|dir>` | Check filename, path, frontmatter | After creating/editing notes; doctor runs this too |
