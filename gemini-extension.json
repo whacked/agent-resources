@@ -1,0 +1,6 @@
+{
+  "name": "ar",
+  "version": "1.0.0",
+  "description": "Notes, tasks, synthesis, reports, and search skills for AI agents.",
+  "contextFileName": "GEMINI.md"
+}

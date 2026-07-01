@@ -1,0 +1,11 @@
+{
+  "name": "ar",
+  "version": "1.0.0",
+  "description": "Notes, tasks, synthesis, reports, and search skills for AI agents.",
+  "author": { "name": "whacked", "email": "directedglaph@gmail.com" },
+  "homepage": "https://github.com/whacked/agent-resources",
+  "repository": "https://github.com/whacked/agent-resources",
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks-codex.json"
+}

@@ -18,3 +18,7 @@ Read this before creating or modifying any artifact in this directory.
 ## Write constraint
 
 Agent output in the notes repo goes to the `agents/` subdirectory of the notes vault only. The exact path is specified in the root `CLAUDE.md`. Never write to the human edited vault outside that path.
+
+## Consumer routing (when this repo is installed as the `ar` extension)
+
+When a workspace has this extension installed, route requests using `skills/using-ar/SKILL.md` — it maps intents (notes, synthesis, reports, CPD, search, doctor) to the right `ar:` skill or bundled guide. Agent writes resolve under `$NOTES_WORKSPACE` (env → git toplevel → CWD).
