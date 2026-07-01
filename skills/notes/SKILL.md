@@ -8,6 +8,8 @@ version: 1.2.0
 
 All agent-authored content lives under `agents/` at the repo root (or `<vault>/agents/` if the vault is a subdirectory). Always use the scripts — never create files by hand.
 
+`<notes-skill>` is this skill's own directory (the folder holding this SKILL.md); its helper scripts live in `<notes-skill>/scripts/`.
+
 ## Full workflow (do these in order)
 
 ### 1. Discover what already exists
@@ -46,11 +48,11 @@ rg -n "TODO|FIXME|#todo|#TODOS|#ActionItem|\baction item:|\- \[ \]" \
 
 ```bash
 # Note
-bash agent-resources/skills/notes/scripts/new-note.sh <slug>
+bash <notes-skill>/scripts/new-note.sh <slug>
 # → agents/notes/YYYY/MM/YYYY-MM-DD.NNN-slug.md
 
 # Task (from a TODO or action item scraped from notes)
-bash agent-resources/skills/notes/scripts/new-task.sh "Task title" \
+bash <notes-skill>/scripts/new-task.sh "Task title" \
   --context "aimemory/2026-05-19.md" \
   --tags foo,bar
 # → agents/tasks/YYYY/MM/NNN-slug.md
@@ -78,12 +80,12 @@ Open the file and:
 ### 5. Validate
 
 ```bash
-bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/YYYY/MM/file.md
+bash <notes-skill>/scripts/validate-note.sh agents/notes/YYYY/MM/file.md
 ```
 
 ### 6. No index to rebuild
 
-tfq is index-free — it computes links and backlinks live on every query, so there is **no `ov index build`** step after creating or editing notes. (If humans browse the vault in Obsidian, Obsidian maintains its own backlink index independently; that is unaffected by the agent loop.)
+tfq is index-free — it computes links and backlinks live on every query, so there is **no index-build step** after creating or editing notes. (If humans browse the vault in Obsidian, Obsidian maintains its own backlink index independently; that is unaffected by the agent loop.)
 
 ---
 
@@ -139,11 +141,11 @@ tfq --root agents/tasks --graph                      # dependency edges
 Task options for `new-task.sh`:
 ```bash
 # Scraped action item (most common case)
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+bash <notes-skill>/scripts/new-task.sh "Title" \
   --context "aimemory/2026-05-19.md" --tags foo,bar
 
 # With explicit priority or dependency
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+bash <notes-skill>/scripts/new-task.sh "Title" \
   --context "aimemory/2026-05-19.md" --priority high --depends-on 002
 ```
 
@@ -155,10 +157,10 @@ bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
 |---|---|
 | Synthesizing human journal entries | note (`new-note.sh`) |
 | Task context, findings, open questions | note (`new-note.sh`) |
-| Architectural decision, design change, directive change | report → `agent-resources/artifacts/reports/` |
-| Schema migration, data contract change | report → `agent-resources/artifacts/reports/` |
+| Architectural decision, design change, directive change | report → `$NOTES_WORKSPACE/artifacts/reports/` |
+| Schema migration, data contract change | report → `$NOTES_WORKSPACE/artifacts/reports/` |
 
-For reports: read `agent-resources/CLAUDE.md` routing, then `agent-resources/docs/agent-guides/reports.md`.
+For reports: read the extension's AGENTS.md routing, then the bundled docs/agent-guides/reports.md.
 
 ---
 
@@ -166,6 +168,6 @@ For reports: read `agent-resources/CLAUDE.md` routing, then `agent-resources/doc
 
 | Script | Purpose | When to call |
 |---|---|---|
-| `agent-resources/skills/notes/scripts/new-note.sh <slug>` | Create sharded note with frontmatter | Any time agent writes a synthesis or working note |
-| `agent-resources/skills/notes/scripts/new-task.sh "title" [opts]` | Create sharded task via tfq | When promoting a TODO to a tracked task |
-| `agent-resources/skills/notes/scripts/validate-note.sh <file\|dir>` | Check filename, path, frontmatter | After creating/editing notes; doctor runs this too |
+| `<notes-skill>/scripts/new-note.sh <slug>` | Create sharded note with frontmatter | Any time agent writes a synthesis or working note |
+| `<notes-skill>/scripts/new-task.sh "title" [opts]` | Create sharded task via tfq | When promoting a TODO to a tracked task |
+| `<notes-skill>/scripts/validate-note.sh <file\|dir>` | Check filename, path, frontmatter | After creating/editing notes; doctor runs this too |

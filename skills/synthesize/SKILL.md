@@ -53,16 +53,16 @@ rg "slug:" agents/notes/ --include="*.md" -l
 tfq --root <vault>/pages --backlinks "<canonical-note>"
 
 # CPD data files (structured multi-session records)
-find agent-resources/artifacts/data -name "*.cpd.yaml" 2>/dev/null
-find agent-resources/artifacts/data -name "*.cpd.yaml" | xargs grep -l "<topic>" 2>/dev/null
+find $NOTES_WORKSPACE/artifacts/data -name "*.cpd.yaml" 2>/dev/null
+find $NOTES_WORKSPACE/artifacts/data -name "*.cpd.yaml" | xargs grep -l "<topic>" 2>/dev/null
 ```
 
 Read the full content of everything that surfaces. Don't skim.
 
 **Reading CPD files:** CPD YAML is human-readable directly. For processing records programmatically, convert to JSONL first:
 ```bash
-cpd agent-resources/artifacts/data/<scope>/<file>.cpd.yaml  # → JSONL to stdout
-cpd agent-resources/artifacts/data/<scope>/<file>.cpd.yaml -sql  # → SQLite DDL+INSERT for querying
+cpd $NOTES_WORKSPACE/artifacts/data/<scope>/<file>.cpd.yaml  # → JSONL to stdout
+cpd $NOTES_WORKSPACE/artifacts/data/<scope>/<file>.cpd.yaml -sql  # → SQLite DDL+INSERT for querying
 ```
 
 ---
@@ -88,7 +88,7 @@ CPD files accumulate structured records across sessions — benchmark results, a
 ```
 New session of structured data to record?
 └── Yes → append records to the CPD file for this dataset
-    (read agent-resources/docs/agent-guides/cpd-data.md for schema/migration rules)
+    (read the bundled docs/agent-guides/cpd-data.md for schema/migration rules)
     ├── Schema unchanged → append directly
     ├── Schema expanding → update schema, then append
     └── Incompatible shape → start new CPD file, write normative report
@@ -114,7 +114,7 @@ The synthesis note summarizes these insights in prose. The CPD file remains the 
 
 **Where CPD files live:**
 ```
-agent-resources/artifacts/data/<scope-slug>/<dataset-slug>.cpd.yaml
+$NOTES_WORKSPACE/artifacts/data/<scope-slug>/<dataset-slug>.cpd.yaml
 ```
 
 **Do not** append session data to a synthesis note. Notes are narrative; CPD files are data. Keep them separate.
@@ -184,9 +184,9 @@ If the output is a formal architectural decision or directive change:
 
 ```bash
 # ADR goes via the formal report pathway, not new-note.sh
-# Read agent-resources/AGENTS.md and agent-resources/docs/agent-guides/reports.md first
+# Read the bundled AGENTS.md and docs/agent-guides/reports.md first
 # File lands in $NOTES_WORKSPACE/artifacts/reports/YYYY/MM/
-# Validate with agent-resources/scripts/validate-frontmatter.sh
+# Validate with <install>/scripts/validate-frontmatter.sh
 ```
 
 Do not commit an ADR speculatively. The `intent: normative` report format exists precisely because these decisions matter and should be reviewed.
@@ -197,11 +197,11 @@ Do not commit an ADR speculatively. The `intent: normative` report format exists
 
 ```bash
 # For notes (all modes except ADR)
-bash agent-resources/skills/notes/scripts/new-note.sh <slug>
+bash <notes-skill>/scripts/new-note.sh <slug>
 # Fill in source_notes:, supersedes: (if applicable), tags:, relations:
 
 # For tasks — always use action-item template for scraped items; always set context
-bash agent-resources/skills/notes/scripts/new-task.sh "Title" \
+bash <notes-skill>/scripts/new-task.sh "Title" \
   --template action-item --context "<source-file>" [--priority high|low] [--depends-on <NNN>]
 
 # After ALL tasks are created, run graph and reason about dependencies:
@@ -249,7 +249,7 @@ Always close with a concrete list of any manual changes that fall outside the wr
 ## After all output is created
 
 ```bash
-bash agent-resources/skills/notes/scripts/validate-note.sh agents/notes/
-# tfq is index-free — no `ov index build` step. (Obsidian keeps its own backlink
+bash <notes-skill>/scripts/validate-note.sh agents/notes/
+# tfq is index-free — no index-build step. (Obsidian keeps its own backlink
 # index for human browsing, independently of the agent loop.)
 ```
