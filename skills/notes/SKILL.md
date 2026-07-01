@@ -160,7 +160,7 @@ bash <notes-skill>/scripts/new-task.sh "Title" \
 | Architectural decision, design change, directive change | report → `$NOTES_WORKSPACE/artifacts/reports/` |
 | Schema migration, data contract change | report → `$NOTES_WORKSPACE/artifacts/reports/` |
 
-For reports: read the extension's AGENTS.md routing, then the bundled docs/agent-guides/reports.md.
+For reports: read the extension's `AGENTS.md` routing, then the bundled `docs/agent-guides/reports.md`.
 
 ---
 

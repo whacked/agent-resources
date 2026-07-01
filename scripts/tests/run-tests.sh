@@ -36,6 +36,7 @@ if command -v tfq &>/dev/null; then
 else
     echo "SKIP: valid document passes (tfq not on PATH)"
 fi
+# These two fail on content/filename grounds; no tfq guard needed (the validator errors out without tfq, which still satisfies the expected-failure checks).
 check "invalid content fails"        fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample-invalid.md"
 check "bad filename fails"           fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample.md"
 

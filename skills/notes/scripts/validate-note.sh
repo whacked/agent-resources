@@ -14,7 +14,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 SCHEMA="$SKILL_DIR/schemas/notes.cue.template.md"
 VALIDATOR="$(cd "$SCRIPT_DIR/../../.." && pwd)/scripts/validate-frontmatter.sh"
 
@@ -37,7 +36,7 @@ validate_one() {
     ok=1
   fi
 
-  # 2. Path sharding: must end in YYYY/MM/DD
+  # 2. Path sharding: must end in YYYY/MM
   if ! echo "$dir" | grep -qE '/[0-9]{4}/[0-9]{2}$'; then
     echo "FAIL  path: $file"
     echo "      expected path ending: YYYY/MM/"
