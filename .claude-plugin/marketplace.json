@@ -1,0 +1,12 @@
+{
+  "name": "agent-resources",
+  "owner": { "name": "whacked", "email": "directedglaph@gmail.com" },
+  "plugins": [
+    {
+      "name": "ar",
+      "source": "./",
+      "description": "Notes, tasks, synthesis, reports, and search skills for AI agents (namespaced ar:*).",
+      "version": "1.0.0"
+    }
+  ]
+}
