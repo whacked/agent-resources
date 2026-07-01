@@ -13,11 +13,13 @@ So installing gives you the *capabilities*; pointing at a workspace tells them *
 
 ## Install
 
+> Full per-harness install + update steps: [`docs/INSTALL.md`](docs/INSTALL.md).
+
 There is no single cross-harness command — each agent has its own install mechanism — but it is one step per harness, and all of them read the same shared `skills/` directory from this one repo.
 
 | Harness | Manifest in this repo | Install |
 |---|---|---|
-| **Claude Code** | `.claude-plugin/{plugin.json, marketplace.json}` | `/plugin marketplace add whacked/agent-resources`<br>then `/plugin install agent-resources@agent-resources` |
+| **Claude Code** | `.claude-plugin/{plugin.json, marketplace.json}` | `/plugin marketplace add whacked/agent-resources`<br>then `/plugin install ar@agent-resources` |
 | **Codex** | `.codex-plugin/plugin.json` (`skills: ./skills/`) + `AGENTS.md` | Add this repo as a Codex plugin (git source) |
 | **Gemini** | `gemini-extension.json` + `GEMINI.md` | `gemini extensions install https://github.com/whacked/agent-resources` |
 | **OpenCode** | `.opencode/plugins/agent-resources.js` + `.opencode/INSTALL.md` | See [`.opencode/INSTALL.md`](.opencode/INSTALL.md) |
@@ -104,7 +106,7 @@ my-notes-repo/                          # = $NOTES_WORKSPACE (git top-level)
 │   └── bandgap-reference.md            # you write here
 │
 ├── agents/                             # agent writes here only — do not edit by hand
-│   ├── notes/                          # synthesized notes (sharded YYYY/MM/DD/)
+│   ├── notes/                          # synthesized notes (sharded YYYY/MM/)
 │   │   └── 2026/05/18/
 │   │       └── 2026-05-18.001-bandgap-synthesis.md
 │   └── tasks/                          # tracked tasks (tfq; index-free, no config file)
