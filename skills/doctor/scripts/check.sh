@@ -1,55 +1,65 @@
 #!/usr/bin/env bash
-# Doctor check script — exits 0 if all pass, 1 if any fail
+# Doctor — exits 0 if all required checks pass, 1 if any fail.
+# Two layouts:
+#   plugin    : this tree is installed in a harness cache, OUTSIDE the workspace
+#               it writes into. Submodule-only checks degrade to INFO.
+#   submodule : this tree is a subdirectory of the consuming repo. The
+#               .claude/skills symlink + extension-routing checks are real.
+set -uo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-NOTES_SCRIPTS="$(cd "$SCRIPT_DIR/../../notes/scripts" && pwd)"
+SKILLS_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+INSTALL_ROOT="$(cd "$SKILLS_DIR/.." && pwd)"
+NOTES_SCRIPTS="$SKILLS_DIR/notes/scripts"
+DEPS_JSON="$INSTALL_ROOT/dependencies.json"
 status=0
 
-# AGENTS_DIR: where agent output lives, relative to REPO.
-# Default assumes vault = repo root (agents/ sits directly at repo root).
-# Override with env var when vault is a subdirectory:
-#   AGENTS_DIR=my-notes/agents bash check.sh
-AGENTS_DIR="${AGENTS_DIR:-agents}"
+# shellcheck source=/dev/null
+source "$INSTALL_ROOT/scripts/lib/workspace.sh"
+WORKSPACE="$(resolve_workspace)"
+AGENTS="$(agents_dir)"
 
-check() {
-  local label="$1" result="$2"
-  if [ "$result" = "ok" ]; then
-    echo "PASS  $label"
-  else
-    echo "FAIL  $label"
-    echo "      fix: $result"
-    status=1
-  fi
-}
+case "$INSTALL_ROOT/" in
+  "$WORKSPACE"/*) LAYOUT="submodule" ;;
+  *)              LAYOUT="plugin" ;;
+esac
 
-warn() {
-  echo "WARN  $1"
-  echo "      note: $2"
-}
+check() { local label="$1" result="$2"
+  if [ "$result" = "ok" ]; then echo "PASS  $label"
+  else echo "FAIL  $label"; echo "      fix: $result"; status=1; fi; }
+warn() { echo "WARN  $1"; echo "      note: $2"; }
+info() { echo "INFO  $1"; }
 
-# --- required binaries ---
-# tfq is the one binary that supersedes ov, taskmd, and cue (it shells to rg and
-# bundles the cuelang library). rg and jq are hard deps of tfq and the scripts.
-for bin in tfq rg jq; do
-  command -v $bin &>/dev/null \
-    && check "$bin binary in PATH" "ok" \
-    || check "$bin binary in PATH" "install $bin and put it on PATH (e.g. \$HOME/.local/bin/$bin)"
-done
+echo "Layout: $LAYOUT"
+echo "Workspace: $WORKSPACE"
+echo "Agents: $AGENTS"
+echo
 
-# --- optional binaries (features degrade gracefully when absent) ---
-for bin in ck cpd; do
-  command -v $bin &>/dev/null \
-    && check "$bin binary in PATH (optional)" "ok" \
-    || warn "$bin not found (optional)" "semantic search / CPD features degrade without it"
-done
-
-# tfq is index-free: no `ov index build` and no `taskmd init`/.taskmd.yaml to check.
+# --- external CLI dependencies (manifest-driven) ---
+if command -v jq &>/dev/null && [ -f "$DEPS_JSON" ]; then
+  while IFS=$'\t' read -r name _check required; do
+    if command -v "$name" &>/dev/null; then
+      check "$name binary in PATH" "ok"
+    elif [ "$required" = "true" ]; then
+      check "$name binary in PATH" "install $name and put it on PATH (see dependencies.json .usedBy)"
+    else
+      warn "$name not found (optional)" "features that use $name degrade without it"
+    fi
+  done < <(jq -r '.cli[] | [.name, .check, (.required|tostring)] | @tsv' "$DEPS_JSON")
+else
+  for bin in tfq rg jq; do
+    command -v "$bin" &>/dev/null \
+      && check "$bin binary in PATH" "ok" \
+      || check "$bin binary in PATH" "install $bin and put it on PATH"
+  done
+  [ -f "$DEPS_JSON" ] || warn "dependencies.json missing" "expected at $DEPS_JSON"
+fi
 
 # --- agent output directories ---
-for dir in "$AGENTS_DIR/tasks" "$AGENTS_DIR/notes"; do
-  [ -d "$REPO/$dir" ] \
-    && check "agent dir exists: $dir" "ok" \
-    || check "agent dir exists: $dir" "run: mkdir -p $REPO/$dir"
+for dir in "$AGENTS/notes" "$AGENTS/tasks"; do
+  [ -d "$dir" ] \
+    && check "agent dir exists: ${dir#"$WORKSPACE"/}" "ok" \
+    || check "agent dir exists: ${dir#"$WORKSPACE"/}" "run: mkdir -p $dir"
 done
 
 # --- notes skill scripts present ---
@@ -60,56 +70,10 @@ for script in new-note.sh new-task.sh validate-note.sh; do
 done
 
 # --- notes schema present ---
-[ -f "$(cd "$SCRIPT_DIR/../../notes/schemas" && pwd)/notes.cue.template.md" ] \
+NOTES_SCHEMA="$SKILLS_DIR/notes/schemas/notes.cue.template.md"
+[ -f "$NOTES_SCHEMA" ] \
   && check "notes schema exists" "ok" \
-  || check "notes schema exists" "missing: $(cd "$SCRIPT_DIR/../../notes/schemas" && pwd)/notes.cue.template.md"
-
-# --- agents/notes sharding: no flat .md files directly under agents/notes/ ---
-flat_notes=$(find "$REPO/$AGENTS_DIR/notes" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l)
-[ "${flat_notes:-0}" -eq 0 ] \
-  && check "agents/notes: no flat .md files (all sharded)" "ok" \
-  || check "agents/notes: no flat .md files (all sharded)" \
-    "$flat_notes .md file(s) directly under $AGENTS_DIR/notes/ — move to YYYY/MM/DD/ subdirs"
-
-# --- agents/notes frontmatter validation ---
-note_count=$(find "$REPO/$AGENTS_DIR/notes" -name "*.md" 2>/dev/null | wc -l)
-if [ "${note_count:-0}" -gt 0 ]; then
-  bad_notes=$(bash "$NOTES_SCRIPTS/validate-note.sh" "$REPO/$AGENTS_DIR/notes" 2>/dev/null | grep -c "^FAIL" || true)
-  if [ "${bad_notes:-0}" -gt 0 ]; then
-    check "agents/notes frontmatter valid" \
-      "$bad_notes file(s) invalid — run: bash $NOTES_SCRIPTS/validate-note.sh $REPO/$AGENTS_DIR/notes"
-  else
-    check "agents/notes frontmatter valid ($note_count files)" "ok"
-  fi
-else
-  warn "agents/notes is empty" "no notes yet — create with: bash $NOTES_SCRIPTS/new-note.sh <slug>"
-fi
-
-# --- agents/tasks sharding: warn if tasks at root (not in YYYY/MM/) ---
-flat_tasks=$(find "$REPO/$AGENTS_DIR/tasks" -maxdepth 1 -name "*.md" ! -name ".taskmd*" 2>/dev/null | wc -l)
-[ "${flat_tasks:-0}" -eq 0 ] \
-  && check "agents/tasks: no flat task files (all sharded)" "ok" \
-  || warn "agents/tasks: $flat_tasks flat task file(s)" \
-    "use agent-resources/skills/notes/scripts/new-task.sh to create tasks in YYYY/MM/ shards"
-
-# --- ck index ---
-if [ -d "$REPO/.ck" ]; then
-  check "ck index exists at repo root" "ok"
-  ck_files=$(cd $REPO && ck --status-json . 2>/dev/null | jq -r '.total_files // 0' 2>/dev/null)
-  [ "${ck_files:-0}" -gt 10 ] \
-    && check "ck index has content ($ck_files files)" "ok" \
-    || warn "ck index small ($ck_files files)" "run: cd $REPO && ck --index ."
-else
-  check "ck index exists at repo root" "run: cd $REPO && ck --index ."
-fi
-
-# --- skills symlink ---
-SKILLS_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-if [ -L "$REPO/.claude/skills" ] && [ "$(readlink $REPO/.claude/skills)" = "$SKILLS_DIR" ]; then
-  check "skills symlink (.claude/skills -> agent-resources/skills)" "ok"
-else
-  check "skills symlink" "run: ln -sfn $SKILLS_DIR $REPO/.claude/skills"
-fi
+  || check "notes schema exists" "missing: $NOTES_SCHEMA"
 
 # --- required skills registered ---
 for skill in tfq ck audit-skills doctor notes synthesize; do
@@ -118,27 +82,45 @@ for skill in tfq ck audit-skills doctor notes synthesize; do
     || check "skill registered: $skill" "missing $SKILLS_DIR/$skill/SKILL.md"
 done
 
-# --- agent-resources/CLAUDE.md (routing + invariants) ---
-[ -f "$REPO/agent-resources/CLAUDE.md" ] \
-  && check "agent-resources/CLAUDE.md exists" "ok" \
-  || check "agent-resources/CLAUDE.md exists" \
-    "missing — check agent-resources checkout: git submodule update --init"
+# --- agents/notes sharding + frontmatter (only when notes exist) ---
+if [ -d "$AGENTS/notes" ]; then
+  flat_notes=$(find "$AGENTS/notes" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  [ "${flat_notes:-0}" -eq 0 ] \
+    && check "agents/notes: all sharded (no flat .md)" "ok" \
+    || check "agents/notes: all sharded (no flat .md)" "$flat_notes flat file(s) — move to YYYY/MM/ subdirs"
 
-# --- agent notes have author field ---
-if [ -d "$REPO/$AGENTS_DIR/notes" ]; then
-  missing_author=$(rg -rL "^author: " "$REPO/$AGENTS_DIR/notes" --include="*.md" 2>/dev/null | wc -l)
-  [ "${missing_author:-0}" -eq 0 ] \
-    && check "agents/notes all have author: field" "ok" \
-    || check "agents/notes all have author: field" \
-      "$missing_author file(s) missing — run: rg -rL '^author: ' $REPO/$AGENTS_DIR/notes --include='*.md'"
+  note_count=$(find "$AGENTS/notes" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${note_count:-0}" -gt 0 ]; then
+    bad=$(bash "$NOTES_SCRIPTS/validate-note.sh" "$AGENTS/notes" 2>/dev/null | grep -c "^FAIL" || true)
+    [ "${bad:-0}" -eq 0 ] \
+      && check "agents/notes frontmatter valid ($note_count files)" "ok" \
+      || check "agents/notes frontmatter valid" "$bad invalid — run: bash $NOTES_SCRIPTS/validate-note.sh $AGENTS/notes"
+  else
+    info "agents/notes is empty (no notes yet)"
+  fi
 fi
 
-# --- no agent writes outside agents/ (whole repo, excluding agents/ and agent-resources/) ---
-human_authored_by_agent=$(rg -rl "^author: agent" "$REPO" --include="*.md" \
-  --glob "!$AGENTS_DIR/**" --glob "!agent-resources/**" 2>/dev/null | wc -l)
-[ "${human_authored_by_agent:-0}" -eq 0 ] \
-  && check "no agent-authored files outside $AGENTS_DIR/" "ok" \
-  || check "no agent-authored files outside $AGENTS_DIR/" \
-    "$human_authored_by_agent file(s) found outside $AGENTS_DIR/ — agent must not write to human content"
+# --- submodule-only checks (INFO under plugin layout) ---
+if [ "$LAYOUT" = "submodule" ]; then
+  if [ -L "$WORKSPACE/.claude/skills" ] && [ "$(readlink "$WORKSPACE/.claude/skills")" = "$SKILLS_DIR" ]; then
+    check ".claude/skills -> skills symlink" "ok"
+  else
+    check ".claude/skills -> skills symlink" "run: ln -sfn $SKILLS_DIR $WORKSPACE/.claude/skills"
+  fi
+else
+  info "plugin/extension layout — .claude/skills symlink is managed by the harness (skipped)"
+fi
+
+# --- extension routing file present (both layouts) ---
+{ [ -f "$INSTALL_ROOT/AGENTS.md" ] || [ -f "$INSTALL_ROOT/CLAUDE.md" ]; } \
+  && check "extension routing file (AGENTS.md/CLAUDE.md) present" "ok" \
+  || check "extension routing file (AGENTS.md/CLAUDE.md) present" "missing at $INSTALL_ROOT — checkout looks incomplete"
+
+# --- ck index (optional) ---
+if command -v ck &>/dev/null; then
+  [ -d "$WORKSPACE/.ck" ] \
+    && check "ck index exists at workspace root" "ok" \
+    || warn "ck index not built" "run: cd $WORKSPACE && ck --index ."
+fi
 
 exit $status

@@ -1,0 +1,13 @@
+{
+  "cli": [
+    { "name": "tfq", "check": "tfq --version", "required": true,  "usedBy": ["notes", "synthesize", "doctor"] },
+    { "name": "rg",  "check": "rg --version",  "required": true,  "usedBy": ["notes", "tfq"] },
+    { "name": "jq",  "check": "jq --version",  "required": true,  "usedBy": ["notes", "doctor"] },
+    { "name": "ck",  "check": "ck --version",  "required": false, "usedBy": ["ck"] },
+    { "name": "cpd", "check": "cpd --help",    "required": false, "usedBy": ["synthesize"] }
+  ],
+  "cohesion": {
+    "knowledge-core": ["notes", "synthesize", "doctor"],
+    "leaf": ["tfq", "ck", "audit-skills"]
+  }
+}
