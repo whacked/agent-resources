@@ -185,7 +185,7 @@ If the output is a formal architectural decision or directive change:
 ```bash
 # ADR goes via the formal report pathway, not new-note.sh
 # Read agent-resources/AGENTS.md and agent-resources/docs/agent-guides/reports.md first
-# File lands in agent-resources/artifacts/reports/YYYY/MM/DD/
+# File lands in $NOTES_WORKSPACE/artifacts/reports/YYYY/MM/
 # Validate with agent-resources/scripts/validate-frontmatter.sh
 ```
 

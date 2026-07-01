@@ -24,11 +24,11 @@ data:
 
 ## Store by dataset
 
-Write records to `artifacts/data/<scope-or-dataset-slug>/<dataset-slug>.cpd.yaml`. Continue appending to the same CPD file while the accumulation scope and schema remain compatible; do not rotate files merely because the calendar date changes.
+Write records to `$NOTES_WORKSPACE/artifacts/data/<scope-or-dataset-slug>/<dataset-slug>.cpd.yaml` (`$NOTES_WORKSPACE` resolves env → git toplevel → CWD; see `scripts/lib/workspace.sh`). Continue appending to the same CPD file while the accumulation scope and schema remain compatible; do not rotate files merely because the calendar date changes.
 
 Use CPD defaults unless a reader requires otherwise. Check `cpd --help` or `cpd --examples` when unsure.
 
-For long-lived datasets, add `artifacts/data/<scope-or-dataset-slug>/README.md` with the dataset purpose, active CPD file, schema lineage, append policy, and migration notes.
+For long-lived datasets, add `$NOTES_WORKSPACE/artifacts/data/<scope-or-dataset-slug>/README.md` with the dataset purpose, active CPD file, schema lineage, append policy, and migration notes.
 
 ## Evolve deliberately
 
