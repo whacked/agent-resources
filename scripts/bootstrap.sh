@@ -332,7 +332,8 @@ $CLAUDE_BLOCK_START
 Skills live in \`agent-resources/skills/\` and are symlinked to \`.claude/skills/\`.
 See \`agent-resources/README.md\` for orientation; \`agent-resources/CLAUDE.md\` for routing and invariants.
 
-**Write constraint**: agent output goes to \`$AGENTS_DIR/\`. Never write to \`$NOTES_VAULT/\` outside that path.
+**Write constraint**: agent output goes to \`$AGENTS_DIR/\` and \`$NOTES_VAULT/artifacts/\`. Never write to \`$NOTES_VAULT/\` outside those paths.
+Set \`NOTES_WORKSPACE=$TARGET_REPO\` (or rely on the git toplevel) so the skills resolve writes here.
 $CLAUDE_BLOCK_END
 EOF
 }
@@ -382,6 +383,21 @@ TASKS_DIR="$TARGET_REPO/$AGENTS_DIR/tasks"
 
 for dir in "$NOTES_DIR" "$TASKS_DIR"; do
   rel="${dir#$TARGET_REPO/}"
+  if [[ -d "$dir" ]]; then
+    log_skip "$rel/ already exists"
+  else
+    act "Create $rel/" mkdir -p "$dir"
+  fi
+done
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 4b: artifacts directories (reports + CPD data)
+# ══════════════════════════════════════════════════════════════════════════════
+
+log_section "Phase 4b: artifacts directories"
+
+for dir in "$TARGET_REPO/$NOTES_VAULT/artifacts/reports" "$TARGET_REPO/$NOTES_VAULT/artifacts/data"; do
+  rel="${dir#"$TARGET_REPO"/}"
   if [[ -d "$dir" ]]; then
     log_skip "$rel/ already exists"
   else

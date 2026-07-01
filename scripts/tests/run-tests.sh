@@ -31,9 +31,19 @@ VALID_REPORT="$_tmpdir/2026-04-22.001-valid-report.md"
 cp "$TESTS_DIR/validate-sample.md" "$VALID_REPORT"
 trap 'rm -rf "$_tmpdir"' EXIT
 
-check "valid document passes"        pass "$VALIDATOR" "$SCHEMA" "$VALID_REPORT"
+if command -v tfq &>/dev/null; then
+    check "valid document passes"    pass "$VALIDATOR" "$SCHEMA" "$VALID_REPORT"
+else
+    echo "SKIP: valid document passes (tfq not on PATH)"
+fi
 check "invalid content fails"        fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample-invalid.md"
 check "bad filename fails"           fail "$VALIDATOR" "$SCHEMA" "$TESTS_DIR/validate-sample.md"
+
+# new portability + correctness sub-suites
+check "workspace resolver suite"   pass bash "$TESTS_DIR/test-workspace.sh"
+check "portability suite"          pass bash "$TESTS_DIR/test-portability.sh"
+check "doctor smoke suite"         pass bash "$TESTS_DIR/test-doctor.sh"
+check "prose linter"               pass bash "$TESTS_DIR/test-prose.sh"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
