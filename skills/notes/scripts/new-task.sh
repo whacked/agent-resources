@@ -13,8 +13,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-TASKS_DIR="$REPO_ROOT/agents/tasks"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/../../../scripts/lib/workspace.sh"
+TASKS_DIR="$(agents_dir)/tasks"
 
 usage() {
   echo "Usage: $0 \"Task title\" [--priority P] [--effort E] [--parent REF] [--depends-on REF[,REF]] [--tags a,b,c] [--context FILE]" >&2

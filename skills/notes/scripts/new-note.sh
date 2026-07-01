@@ -17,7 +17,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/../../../scripts/lib/workspace.sh"
 
 usage() {
   echo "Usage: $0 <slug> [--dest-dir DIR] [--author NAME] [--edit]" >&2
@@ -35,7 +36,7 @@ SLUG="$1"; shift
 # Detect agent vs human: CLAUDECODE=1 is set by Claude Code in agent shells
 if [[ -n "${CLAUDECODE:-}" ]]; then
   DEFAULT_AUTHOR="agent"
-  DEFAULT_DEST="$REPO_ROOT/agents/notes"
+  DEFAULT_DEST="$(agents_dir)/notes"
 else
   DEFAULT_AUTHOR=$(git config user.name 2>/dev/null || echo "${USER:-human}")
   DEFAULT_DEST="$PWD"

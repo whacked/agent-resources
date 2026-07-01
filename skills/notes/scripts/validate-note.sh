@@ -7,7 +7,7 @@
 #
 # Checks:
 #   1. Filename matches YYYY-MM-DD.NNN-slug.md
-#   2. Path is under YYYY/MM/DD/ sharding
+#   2. Path is under YYYY/MM/ sharding
 #   3. YAML frontmatter validates against skills/notes/schemas/notes.cue.template.md
 
 set -euo pipefail
