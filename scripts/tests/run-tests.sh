@@ -45,6 +45,8 @@ check "workspace resolver suite"   pass bash "$TESTS_DIR/test-workspace.sh"
 check "portability suite"          pass bash "$TESTS_DIR/test-portability.sh"
 check "doctor smoke suite"         pass bash "$TESTS_DIR/test-doctor.sh"
 check "prose linter"               pass bash "$TESTS_DIR/test-prose.sh"
+check "manifest version-sync suite" pass bash "$TESTS_DIR/test-manifests.sh"
+check "session-start hook suite"    pass bash "$TESTS_DIR/test-hooks.sh"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

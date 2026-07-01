@@ -107,7 +107,7 @@ my-notes-repo/                          # = $NOTES_WORKSPACE (git top-level)
 │
 ├── agents/                             # agent writes here only — do not edit by hand
 │   ├── notes/                          # synthesized notes (sharded YYYY/MM/)
-│   │   └── 2026/05/18/
+│   │   └── 2026/05/
 │   │       └── 2026-05-18.001-bandgap-synthesis.md
 │   └── tasks/                          # tracked tasks (tfq; index-free, no config file)
 │       └── 2026/05/
