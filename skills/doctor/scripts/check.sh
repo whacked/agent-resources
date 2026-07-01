@@ -123,4 +123,24 @@ if command -v ck &>/dev/null; then
     || warn "ck index not built" "run: cd $WORKSPACE && ck --index ."
 fi
 
+# --- version + upstream staleness ---
+PLUGIN_JSON="$INSTALL_ROOT/.claude-plugin/plugin.json"
+if command -v jq &>/dev/null && [ -f "$PLUGIN_JSON" ]; then
+  installed_ver="$(jq -r '.version // "unknown"' "$PLUGIN_JSON")"
+  info "installed ar version: $installed_ver"
+fi
+if git -C "$INSTALL_ROOT" rev-parse --git-dir &>/dev/null; then
+  local_head="$(git -C "$INSTALL_ROOT" rev-parse HEAD 2>/dev/null)"
+  remote_head="$(git -C "$INSTALL_ROOT" ls-remote origin HEAD 2>/dev/null | awk '{print $1}')"
+  if [ -n "$remote_head" ] && [ "$local_head" != "$remote_head" ]; then
+    warn "ar may be behind upstream" "local ${local_head:0:8} != origin ${remote_head:0:8} — update: /plugin marketplace update agent-resources (Claude), codex plugin marketplace upgrade, or gemini extensions update ar"
+  elif [ -n "$remote_head" ]; then
+    info "ar is up to date with origin (${local_head:0:8})"
+  else
+    info "upstream HEAD unknown (no reachable 'origin' remote) — update via your harness's plugin-update command"
+  fi
+else
+  info "install dir is not a git checkout — update via your harness's plugin-update command (/plugin marketplace update agent-resources, etc.)"
+fi
+
 exit $status
