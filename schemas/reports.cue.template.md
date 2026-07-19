@@ -7,7 +7,8 @@ author?: string
 owner?: string
 tags?: [...string]
 references?: [...string]
-supersedes?: string
+supersedes?: string            // predecessor this report replaces (forward edge; authoritative)
+superseded_by?: [...string]    // successor(s) that replace this report (derived reverse cache)
 ```
 
 # <title>

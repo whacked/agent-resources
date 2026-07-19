@@ -27,7 +27,7 @@ tfq --root <vault> "<topic>"            # keyword search (add --in heading|tag|l
 ck --hybrid "<topic>" .                 # cross-vault semantic search
 ```
 
-If a relevant prior agent note exists and you are updating it, create a new note with `supersedes:` — do not edit the old file.
+If a relevant prior agent note exists and you are updating it, create a new note with `supersedes:` — do not edit the old note's **body**. You must still set the *reverse* edge on the old note (its `superseded_by:` list and `status: superseded`); those two frontmatter fields are the only permitted post-hoc change. See step 4.
 
 ### 2. Read source notes
 
@@ -73,7 +73,14 @@ Slug: lowercase, hyphens only (`[a-z0-9-]+`). The script returns the created fil
 Open the file and:
 - Set `source_notes:` to every human note you synthesized from — this is mandatory, it's the provenance link
 - Set `tags:`
-- Add `supersedes: YYYY-MM-DD.NNN-prior-slug` if replacing an earlier note
+- If replacing an earlier note, set **both** edges (supersession is bidirectional):
+  - on the **new** note: `supersedes: YYYY-MM-DD.NNN-prior-slug` (forward, authoritative)
+  - on the **old** note: append this note's slug to `superseded_by:` and set `status: superseded` (reverse). Its body stays immutable — only these two fields change. Write with one tfq call (`--field-list` replaces, so include any pre-existing successors):
+    ```bash
+    tfq --root agents/notes --set <prior-slug> \
+        --field-list superseded_by=<this-slug> --field status=superseded
+    ```
+  - verify/reconcile both directions: `bash <install>/skills/doctor/scripts/supersession-repair.sh --root agents/notes`
 - Write `[[bare-links]]` in the body to reference source notes and related notes (see Link Convention below)
 - For tasks: set `context:` to the source journal file
 
@@ -120,7 +127,9 @@ slug: short-slug
 source_notes:
   - <vault>/journals/2026-05-18.md
 tags: [example, topic]
-supersedes: 2026-05-17.001-prior-slug   # omit if not replacing anything
+supersedes: 2026-05-17.001-prior-slug   # forward edge; omit if not replacing anything
+# superseded_by: [...] and status: superseded are NOT set at creation. They are added
+# later, to THIS note, when a future note supersedes it (see step 4; doctor reconciles).
 ---
 ```
 

@@ -191,9 +191,10 @@ you write a journal entry or note
   → tfq --backlinks surfaces the agent note live when querying your original (no index step)
   → you edit your note with new thoughts
   → agent writes a new synthesis with supersedes: pointing at the prior one
+  → the prior note is back-annotated with superseded_by: + status: superseded
   → repeat
 ```
 
-Agent notes are never edited in place — each synthesis is a new file; old ones remain as an audit trail of what the agent understood at each point in time.
+Agent note and report **bodies** are never edited in place — each synthesis is a new file; old ones remain as an audit trail of what the agent understood at each point in time. The sole exception is the reverse-supersession link: when a newer file supersedes an older one, the older file's `superseded_by:` list and `status: superseded` are updated so obsolescence is visible without running a tool. Forward `supersedes:` is the source of truth; `doctor` reconciles the reverse cache.
 
 See `CLAUDE.md` for agent routing and invariants, and `docs/agent-guides/` for the detailed workflow guides (reports, CPD data).

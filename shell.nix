@@ -18,7 +18,7 @@ let
   ## to maintain here. https://github.com/whacked/tfq (bundles cuelang; shells to rg).
   ## Override by passing `tfq` (e.g. a local build); otherwise bump the pinned rev.
   tfqPkg = if tfq != null then tfq
-    else (builtins.getFlake "github:whacked/tfq/4dd74262e861e284fff3dab27facf2d30f781672").packages.${pkgs.system}.default;
+    else (builtins.getFlake "github:whacked/tfq/6865b494b4e695c1a0126709cc43870c4f722332").packages.${pkgs.system}.default;
 
 in pkgs.mkShell {
   buildInputs = [

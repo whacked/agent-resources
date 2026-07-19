@@ -17,7 +17,7 @@ Read the human's request and categorize it. The mode determines everything that 
 | Mode | Signal phrases | Output |
 |---|---|---|
 | **Periodic digest** | "weekly wrap", "what happened Mon-Thu", "week 21 status" | New dated summary note; sources intact |
-| **Fragment merge** | "combine my DuckDB notes", "merge these TILs", "make one note from these" | New reference note; old ones marked superseded in new note's frontmatter |
+| **Fragment merge** | "combine my DuckDB notes", "merge these TILs", "make one note from these" | New reference note; a superseded prior agent note gets both supersession edges; human sources recorded in `source_notes:` |
 | **Task deduplication** | "these todos are all the same thing", "aggregate these into one task" | New tracked task; annotation in synthesis note pointing to sources |
 | **Distillation** | "extract the useful bits", "clean up this scratchpad", "turn this mess into a recipe" | New clean note with distilled knowledge; archive raw material |
 | **Live doc sync** | "update the roadmap", "sync meeting minutes into the project doc" | New agent synthesis capturing current state; flag human to update their doc |
@@ -127,7 +127,7 @@ $NOTES_WORKSPACE/artifacts/data/<scope-slug>/<dataset-slug>.cpd.yaml
 
 This affects several modes:
 
-- **Fragment merge**: cannot tag old human notes as #superseded. Instead: mark them superseded via `supersedes:` in the new note's frontmatter, and tell the human "you may want to add #superseded to these source files."
+- **Fragment merge**: cannot tag or back-annotate old human notes. Record every source in `source_notes:`. If a **single prior _agent_ note** is fully obsoleted, set `supersedes:` on the new note and back-annotate that note's `superseded_by:`/`status:` (the bidirectional rule — see the notes skill). Merging several predecessors into one is not yet expressible via the scalar `supersedes:` (deferred); list them in `source_notes:` and tell the human "you may want to add #superseded to these source files."
 - **Task deduplication**: cannot delete or check off - [ ] items in human journals. Instead: create the consolidated task, add a comment in the synthesis note linking back to source lines, and tell the human "these items in [files] are now tracked as task NNN — you may want to mark them done."
 - **Live doc sync**: cannot update the human's Project Roadmap. Instead: create an agent synthesis note capturing current state, and tell the human "your roadmap needs these updates: [list]."
 - **Archive raw logs**: can only move files within `agents/`. If the raw scratchpad is a human note, leave it in place and just create the clean distillation in `agents/notes/`.
@@ -172,6 +172,8 @@ New tasks implied?
     (cancelled, not deleted — the record stays)
 ```
 
+**Only `supersedes:` and `source_notes:` are frontmatter fields in this tree.** `supersedes` is bidirectional now — when you supersede a prior agent note, also set the reverse `superseded_by:`/`status:` on it (notes skill, step 4). `synthesizes`/`expands-on`/`summarizes` are descriptive labels recorded via `source_notes:` and body `[[links]]`, not schema fields (see Typed relations below).
+
 ---
 
 ## Step 6 — For ADR / normative decisions: confirm before committing
@@ -198,7 +200,7 @@ Do not commit an ADR speculatively. The `intent: normative` report format exists
 ```bash
 # For notes (all modes except ADR)
 bash <notes-skill>/scripts/new-note.sh <slug>
-# Fill in source_notes:, supersedes: (if applicable), tags:, relations:
+# Fill in source_notes:, supersedes: (if applicable), tags:
 
 # For tasks — always use action-item template for scraped items; always set context
 bash <notes-skill>/scripts/new-task.sh "Title" \
@@ -215,21 +217,23 @@ tfq --root agents/tasks --set NNN --status cancelled
 mkdir -p agents/archive && mv agents/notes/.../file.md agents/archive/
 ```
 
-### Relations frontmatter
+### Typed relations
+
+Supersession uses the dedicated bidirectional fields `supersedes:` (forward, scalar)
+and `superseded_by:` (reverse, list) — **not** a relations block. See the notes skill
+and `docs/agent-guides/reports.md`.
+
+Other typed relations (`synthesizes`, `expands-on`, `summarizes`, `contradicts`) have
+no schema field yet; express them through `source_notes:` plus `[[body links]]`. When
+real demand appears, the sanctioned form is a map keyed by relation type:
 
 ```yaml
 relations:
-  - type: synthesizes
-    target: "[[<vault>/aimemory/2025-11-20]]"
-  - type: supersedes
-    target: "[[agents/notes/2026/04/01/2026-04-01.001-prior]]"
-  - type: expands-on
-    target: "[[agents/notes/2026/03/15/2026-03-15.002-survey]]"
-  - type: summarizes
-    target: "[[<vault>/journals/2026-05-12]]"
-  - type: contradicts
-    target: "[[<vault>/pages/old-assumption]]"
+  synthesizes: [2025-11-20-aimemory, 2026-03-15.002-survey]
+  contradicts: [old-assumption]
 ```
+
+Do not hand-author a `relations:` block until that field is added to the schema.
 
 ---
 
