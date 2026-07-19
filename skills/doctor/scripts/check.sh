@@ -100,6 +100,22 @@ if [ -d "$AGENTS/notes" ]; then
   fi
 fi
 
+# --- supersession link consistency (reverse superseded_by ⟷ forward supersedes) ---
+SUPERSEDE_REPAIR="$SCRIPT_DIR/supersession-repair.sh"
+if command -v tfq &>/dev/null && [ -x "$SUPERSEDE_REPAIR" ]; then
+  for col in "$AGENTS/notes" "$WORKSPACE/artifacts/reports"; do
+    [ -d "$col" ] || continue
+    [ -n "$(find "$col" -name '*.md' 2>/dev/null | head -1)" ] || continue
+    if bash "$SUPERSEDE_REPAIR" --root "$col" >/dev/null 2>&1; then
+      check "supersession links consistent: ${col#"$WORKSPACE"/}" "ok"
+    else
+      check "supersession links consistent: ${col#"$WORKSPACE"/}" "reverse links drifted — run: bash $SUPERSEDE_REPAIR --root $col --fix"
+    fi
+  done
+elif [ ! -x "$SUPERSEDE_REPAIR" ]; then
+  warn "supersession-repair.sh missing/not executable" "expected at $SUPERSEDE_REPAIR"
+fi
+
 # --- submodule-only checks (INFO under plugin layout) ---
 if [ "$LAYOUT" = "submodule" ]; then
   if [ -L "$WORKSPACE/.claude/skills" ] && [ "$(readlink "$WORKSPACE/.claude/skills")" = "$SKILLS_DIR" ]; then

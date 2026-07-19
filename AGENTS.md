@@ -13,7 +13,8 @@ Read this before creating or modifying any artifact in this directory.
 - Every significant agent decision, architectural change, schema change, or directive change must be recorded as a report in `artifacts/reports/`
 - Any CPD schema change, data migration, or data file replacement requires a normative report
 - Pure CPD appends under an existing compatible schema do not require a report
-- Never edit a prior report's body — supersede it with a new file using `supersedes:` frontmatter
+- Never edit a prior report's or note's **body** — supersede it with a new file carrying `supersedes:` (the authoritative forward edge)
+- Supersession is **bidirectional**: also record the reverse edge on the superseded file — its `superseded_by:` list and `status: superseded`. The body stays immutable; `superseded_by` and `status` are the only frontmatter fields allowed to change post-hoc. Forward `supersedes:` wins on any disagreement; the `doctor` supersession janitor reconciles drift
 
 ## Write constraint
 

@@ -47,6 +47,28 @@ Each search hit is labeled by where it landed (`[heading]`, `[tag]`, `[link]`).
 `<ref>` resolves by path, basename, seq-stripped basename (`001-x.md`→`x`), or
 frontmatter `id`/`slug`/`title`.
 
+## Supersession & typed frontmatter edges
+
+Any frontmatter field is a traversable edge via `--relation`, and get/set verbs
+write them. This repo uses two supersession fields: `supersedes` (scalar, the
+authoritative forward edge on the newer file) and `superseded_by` (list, a derived
+reverse cache on the older file).
+
+```bash
+tfq --root <col> --frontmatter <ref>                          # get: dump one record's frontmatter (add --json to preserve list types)
+tfq --root <col> --set <new> --field supersedes=<old-slug>    # write forward scalar
+tfq --root <col> --set <old> --field-list superseded_by=a,b   # write reverse list (REPLACES the list; empty value clears to [])
+tfq --root <col> --backlinks <old> --relation supersedes      # reverse query: which records supersede <old>
+tfq --root <col> --links <ref> --relation <field>             # generic: traverse any frontmatter field as an edge
+```
+
+`--field-list` replaces the whole list, so recompute the full set before writing.
+tfq writes each direction independently — it does **not** infer the inverse. Keeping
+both directions consistent is policy, enforced two ways: the write-both-ends step in
+`skills/notes` / `docs/agent-guides/reports.md`, and the `doctor` supersession janitor
+(`skills/doctor/scripts/supersession-repair.sh`), which recomputes `superseded_by`
+from the forward edges (`--fix` to apply, fork-safe and idempotent).
+
 ## Tasks + dependencies (taskmd replacement)
 
 Prefer `skills/notes/scripts/new-task.sh` for *creating* agent tasks (it pins
