@@ -55,6 +55,13 @@ got="$(tfq --root "$col" --show 2026-05-01.001-old --frontmatter --json 2>/dev/n
 bash "$REPAIR" --root "$col" --fix >/dev/null 2>&1
 bash "$REPAIR" --root "$col" >/dev/null 2>&1 && ok "janitor idempotent" || bad "janitor not idempotent"
 
+# --- a dangling reverse ref (points nowhere) is detected and cleaned ---
+tfq --root "$col" --set 2026-05-01.001-old --field-list superseded_by=2026-07-19.001-a,2026-07-19.002-b,ghost-ref-nowhere >/dev/null 2>&1
+bash "$REPAIR" --root "$col" >/dev/null 2>&1 && bad "janitor should flag a dangling reverse ref" || ok "janitor detects dangling reverse ref"
+bash "$REPAIR" --root "$col" --fix >/dev/null 2>&1
+got2="$(tfq --root "$col" --show 2026-05-01.001-old --frontmatter --json 2>/dev/null | jq -c '(.superseded_by|sort)')"
+[ "$got2" = '["2026-07-19.001-a","2026-07-19.002-b"]' ] && ok "janitor cleaned dangling ref" || bad "dangling ref not cleaned: $got2"
+
 # --- empty / no-supersession collection exits 0 ---
 empty="$tmp/empty"; mkdir -p "$empty"
 mk '---' 'id: z' 'date: 2026-07-19' 'author: agent' '---' '# z' 'body' > "$empty/z.md"

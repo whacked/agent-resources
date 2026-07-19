@@ -36,9 +36,12 @@ done
 command -v tfq >/dev/null || { echo "error: tfq not on PATH" >&2; exit 2; }
 command -v jq  >/dev/null || { echo "error: jq not on PATH"  >&2; exit 2; }
 
-# Coerce to an array: tfq emits `null` (not `[]`) for a collection with no edges.
+# Two upfront snapshots (coerce to arrays: tfq emits `null`, not `[]`, when empty).
+# `--graph` carries both supersedes and superseded_by edges since tfq 20260719.6865b49.
 graph="$(tfq --root "$ROOT" --graph --json 2>/dev/null | jq -c 'if type=="array" then . else [] end' 2>/dev/null)"
 [ -n "$graph" ] || graph="[]"
+records="$(tfq --root "$ROOT" --list --json 2>/dev/null | jq -c 'if type=="array" then . else [] end' 2>/dev/null)"
+[ -n "$records" ] || records="[]"
 
 ref() { local b; b="$(basename "$1")"; printf '%s' "${b%.md}"; }
 
@@ -55,14 +58,14 @@ for pred in "${preds[@]}"; do
     | jq -r --arg p "$pred" '.[] | select(.kind=="fm:supersedes" and .to==$p) | .from' \
     | while read -r f; do [ -n "$f" ] && ref "$f" && echo; done | sort -u | paste -sd, -)"
 
-  # have = current superseded_by refs, read RAW from frontmatter (preserves the list
-  # and, unlike resolved edges, still surfaces dangling refs that point nowhere).
-  have="$(tfq --root "$ROOT" --show "$pred" --frontmatter --json 2>/dev/null \
-    | jq -r '.superseded_by // [] | .[]' \
+  # have = current superseded_by refs, from the same graph snapshot. `.raw` is the
+  # literal stored ref, so a dangling entry (which resolves to an empty `.to`) is
+  # still surfaced by name and flagged.
+  have="$(printf '%s' "$graph" \
+    | jq -r --arg p "$pred" '.[] | select(.kind=="fm:superseded_by" and .from==$p) | .raw' \
     | while read -r t; do [ -n "$t" ] && ref "$t" && echo; done | sort -u | paste -sd, -)"
 
-  status="$(tfq --root "$ROOT" --list --json 2>/dev/null \
-    | jq -r --arg p "$pred" '.[] | select(.path==$p) | .status' | head -1)"
+  status="$(printf '%s' "$records" | jq -r --arg p "$pred" '.[] | select(.path==$p) | .status' | head -1)"
 
   link_bad=0; status_bad=0
   [ "$want" != "$have" ] && link_bad=1
