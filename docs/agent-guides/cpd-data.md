@@ -19,8 +19,35 @@ status:
   warn: 3
 data:
   - [1, {name: "alpha-1", temperature: 22.5}]
-  - [2, {name: "beta-1", temperature: null}]
+  - [2, {name: "beta-1", temperature: ~}]
 ```
+
+## Write compactly
+
+The `data:` array is where a CPD file spends most of its bytes. Three habits keep accumulated files small and readable, and all three must be applied at write time — reshaping a compaction choice afterward is a migration, not an append.
+
+1. **Null is `~`.** Write null as `~` (1 byte), not `null` (4 bytes) — valid YAML everywhere in a row, saving 3 bytes per occurrence, which adds up over a long file. This holds in positional slots and inside splat dicts alike; cpd itself emits `~` when it compacts.
+
+2. **Declare known categoricals as join tables.** When you already know a field is categorical before writing — campaign name, publisher, book title, artist, album, model id — make it a join table so the repeated string is stored once and each row carries a small integer instead. cpd auto-promotes low-cardinality strings, but auto-detection only sees the current batch; when you know the category up front, force it rather than hope: `-join-tables campaign,publisher` on ingestion, or hand-author the `_columns` entry plus its `name: int` mapping. Join columns go before the splat `...`.
+
+3. **Push a size-dominating payload to the end.** When one field dominates row size — a lyrics string, a document body, a raw response blob — make it the last column and write it as a YAML block scalar (`|-`) so it stays human-readable. A block scalar cannot sit inside a flow `[...]` row, so that row must be written in block style. Two forms:
+   - a dedicated trailing column — `_columns: [..., lyrics]`, value is the bare `|-` block;
+   - inside the splat `...` catch-all — wrap it in a dict so the field key survives: `{lyrics: |- ...}`.
+
+   ```yaml
+   _columns: [artist, album, ...]
+   artist: {radiohead: 1}
+   album: {ok-computer: 1}
+   data:
+     - - 1
+       - 1
+       - released: "1997-05-21"
+         lyrics: |-
+           In the next world war
+           In a jackknifed juggernaut
+   ```
+
+   This is a deliberate trade: the row grows taller but reads cleanly. Apply it **only** when a payload actually dominates. For highly structured rows with no dominant field, do the opposite — keep compact flow arrays (`- [1, ~, "alpha"]`) with the `~` trick; plain arrays are both smaller and easier to scan.
 
 ## Store by dataset
 
